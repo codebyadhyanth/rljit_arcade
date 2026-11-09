@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dbRoutes from './routes/db.routes.js';
+import authRoutes from './routes/auth.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,6 +33,10 @@ app.get('/', (req, res) => {
 // Postman diagnostic and database routes
 app.use(dbRoutes);
 
+// Hierarchical RBAC Provisioning, Authentication & Search routes
+app.use('/api/v1', authRoutes);
+app.use(authRoutes);
+
 // 404 Catch-all handler
 app.use((req, res) => {
   res.status(404).json({
@@ -55,4 +60,3 @@ app.listen(PORT, () => {
 });
 
 export default app;
-

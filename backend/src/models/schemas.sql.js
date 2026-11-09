@@ -1,7 +1,55 @@
 /**
- * SQL DDL Schemas for RLJIT Arcade Database Roles
- * Scope: student, faculty, admin
+ * SQL DDL Schemas for RLJIT Arcade Database
+ * Includes RBAC users, cryptographic blind indexes, atomic ID sequences, and role tables.
  */
+
+export const EXTENSIONS_SQL = `
+  CREATE EXTENSION IF NOT EXISTS pg_trgm;
+  CREATE EXTENSION IF NOT EXISTS pgcrypto;
+`;
+
+export const ID_SEQUENCES_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS id_sequences (
+    prefix VARCHAR(32) PRIMARY KEY,
+    last_seq INT NOT NULL DEFAULT 0
+  );
+`;
+
+export const USERS_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(32) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name_encrypted TEXT NOT NULL,
+    email_encrypted TEXT NOT NULL,
+    phone_encrypted TEXT NOT NULL,
+    email_bidx CHAR(64) UNIQUE NOT NULL,
+    phone_bidx CHAR(64) UNIQUE NOT NULL,
+    base_role VARCHAR(20) NOT NULL CHECK (base_role IN ('ADMIN', 'FACULTY', 'STUDENT')),
+    admin_tier VARCHAR(20) CHECK (admin_tier IS NULL OR admin_tier IN ('SUPER_ADMIN', 'REGULAR_ADMIN', 'HOD_ADMIN')),
+    sub_roles TEXT[] DEFAULT '{}',
+    permissions TEXT[] DEFAULT '{}',
+    department VARCHAR(16),
+    section_code VARCHAR(16),
+    admission_year INT,
+    semester INT,
+    entry_type VARCHAR(16),
+    created_by UUID REFERENCES users(id),
+    must_change_password BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+`;
+
+export const USERS_INDEXES_SQL = `
+  CREATE INDEX IF NOT EXISTS idx_users_username_btree ON users (username);
+  CREATE INDEX IF NOT EXISTS idx_users_username_trgm ON users USING gin (username gin_trgm_ops);
+  CREATE INDEX IF NOT EXISTS idx_users_email_bidx ON users (email_bidx);
+  CREATE INDEX IF NOT EXISTS idx_users_phone_bidx ON users (phone_bidx);
+  CREATE INDEX IF NOT EXISTS idx_users_base_role ON users (base_role);
+  CREATE INDEX IF NOT EXISTS idx_users_admin_tier ON users (admin_tier);
+  CREATE INDEX IF NOT EXISTS idx_users_department ON users (department);
+`;
 
 export const ROLE_SCHEMAS = {
   student: `
@@ -48,10 +96,21 @@ export const ROLE_SCHEMAS = {
 export const VALID_ROLES = ['student', 'faculty', 'admin'];
 
 export const ALL_SCHEMAS = [
+  EXTENSIONS_SQL,
+  ID_SEQUENCES_SCHEMA,
+  USERS_SCHEMA,
+  USERS_INDEXES_SQL,
   ROLE_SCHEMAS.student,
   ROLE_SCHEMAS.faculty,
   ROLE_SCHEMAS.admin
 ];
 
-export default ROLE_SCHEMAS;
-
+export default {
+  EXTENSIONS_SQL,
+  ID_SEQUENCES_SCHEMA,
+  USERS_SCHEMA,
+  USERS_INDEXES_SQL,
+  ROLE_SCHEMAS,
+  VALID_ROLES,
+  ALL_SCHEMAS
+};
