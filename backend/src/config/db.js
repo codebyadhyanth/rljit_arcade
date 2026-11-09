@@ -22,36 +22,21 @@ const dbConfig = {
 };
 
 /**
- * Ensures the target database exists by connecting to the default 'postgres' database
- * and creating 'rljit_arcade' if not present, then initializing core schemas and extensions.
+ * Connection pool connected to the target database
  */
-export async function ensureDatabaseExists() {
-  const targetDb = dbConfig.database;
-  const adminClient = new Client({
-    host: dbConfig.host,
-    port: dbConfig.port,
-    user: dbConfig.user,
-    password: dbConfig.password,
-    database: 'postgres',
-  });
+export const pool = new Pool({
+  host: dbConfig.host,
+  port: dbConfig.port,
+  user: dbConfig.user,
+  password: dbConfig.password,
+  database: dbConfig.database,
+});
 
-  try {
-    await adminClient.connect();
-    const checkQuery = 'SELECT 1 FROM pg_database WHERE datname = $1';
-    const res = await adminClient.query(checkQuery, [targetDb]);
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle PostgreSQL client:', err);
+});
 
-    if (res.rowCount === 0) {
-      const safeDbName = targetDb.replace(/"/g, '""');
-      await adminClient.query(`CREATE DATABASE "${safeDbName}"`);
-      console.log(`Database "${targetDb}" created successfully.`);
-    }
-  } finally {
-    await adminClient.end();
-  }
-
-  // Ensure extensions and core tables exist
-  await initDatabaseTables();
-}
+let initPromise = null;
 
 /**
  * Initializes required extensions, atomic sequences, and users schemas
@@ -71,18 +56,55 @@ export async function initDatabaseTables() {
 }
 
 /**
- * Connection pool connected to the target database
+ * Ensures the target database exists by connecting to the default 'postgres' database
+ * and creating 'rljit_arcade' if not present, then initializing core schemas,
+ * migrations, and extensions.
  */
-export const pool = new Pool({
-  host: dbConfig.host,
-  port: dbConfig.port,
-  user: dbConfig.user,
-  password: dbConfig.password,
-  database: dbConfig.database,
-});
+export async function ensureDatabaseExists() {
+  if (initPromise) {
+    return initPromise;
+  }
 
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle PostgreSQL client:', err);
+  initPromise = (async () => {
+    const targetDb = dbConfig.database;
+    const adminClient = new Client({
+      host: dbConfig.host,
+      port: dbConfig.port,
+      user: dbConfig.user,
+      password: dbConfig.password,
+      database: 'postgres',
+    });
+
+    try {
+      await adminClient.connect();
+      const checkQuery = 'SELECT 1 FROM pg_database WHERE datname = $1';
+      const res = await adminClient.query(checkQuery, [targetDb]);
+
+      if (res.rowCount === 0) {
+        const safeDbName = targetDb.replace(/"/g, '""');
+        await adminClient.query(`CREATE DATABASE "${safeDbName}"`);
+        console.log(`Database "${targetDb}" created successfully.`);
+      }
+    } finally {
+      await adminClient.end();
+    }
+
+    // Ensure extensions, tables, and migrations are applied
+    await initDatabaseTables();
+  })();
+
+  try {
+    await initPromise;
+  } catch (err) {
+    initPromise = null; // Reset so subsequent requests can retry if initial connection failed
+    throw err;
+  }
+}
+
+// Auto-run schema initialization on pool startup (non-blocking)
+ensureDatabaseExists().catch((err) => {
+  // Gracefully log on startup so it doesn't crash before server is ready
+  console.warn('Initial background DB initialization notice:', err.message);
 });
 
 export default pool;

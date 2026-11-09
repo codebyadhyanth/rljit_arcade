@@ -5,6 +5,7 @@ import {
   provisionStudent,
   login,
   searchUsers,
+  verifyDbStorage,
 } from '../controllers/auth.controller.js';
 import { verifyJWT, requireSuperAdmin } from '../middleware/auth.middleware.js';
 
@@ -28,5 +29,7 @@ router.post('/portals/provision-student', verifyJWT, provisionStudent);
 router.post('/auth/login', login);
 router.get('/users/search', verifyJWT, searchUsers);
 
-export default router;
+// E. Postman DB Storage & Persistence Inspector (Super Admin JWT or x-bootstrap-key)
+router.get('/db/verify-storage', verifyDbStorage);
 
+export default router;

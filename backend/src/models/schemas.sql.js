@@ -1,6 +1,7 @@
 /**
  * SQL DDL Schemas for RLJIT Arcade Database
- * Includes RBAC users, cryptographic blind indexes, atomic ID sequences, and role tables.
+ * Includes RBAC users, cryptographic blind indexes, atomic ID sequences, role tables,
+ * and foreign key dual-table sync with cascading references.
  */
 
 export const EXTENSIONS_SQL = `
@@ -35,6 +36,8 @@ export const USERS_SCHEMA = `
     semester INT,
     entry_type VARCHAR(16),
     created_by UUID REFERENCES users(id),
+    login_count INT DEFAULT 0,
+    last_login_at TIMESTAMPTZ,
     must_change_password BOOLEAN DEFAULT TRUE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -55,6 +58,7 @@ export const ROLE_SCHEMAS = {
   student: `
     CREATE TABLE IF NOT EXISTS student (
       id SERIAL PRIMARY KEY,
+      user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
       usn VARCHAR(50) UNIQUE NOT NULL,
       full_name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE,
@@ -70,6 +74,7 @@ export const ROLE_SCHEMAS = {
   faculty: `
     CREATE TABLE IF NOT EXISTS faculty (
       id SERIAL PRIMARY KEY,
+      user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
       emp_id VARCHAR(50) UNIQUE NOT NULL,
       full_name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE,
@@ -83,6 +88,7 @@ export const ROLE_SCHEMAS = {
   admin: `
     CREATE TABLE IF NOT EXISTS admin (
       id SERIAL PRIMARY KEY,
+      user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
       admin_code VARCHAR(50) UNIQUE NOT NULL,
       full_name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE,
@@ -93,6 +99,17 @@ export const ROLE_SCHEMAS = {
   `
 };
 
+export const MIGRATIONS_SQL = `
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INT DEFAULT 0;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+  ALTER TABLE student ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
+  ALTER TABLE faculty ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
+  ALTER TABLE admin ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
+  CREATE INDEX IF NOT EXISTS idx_student_user_id ON student (user_id);
+  CREATE INDEX IF NOT EXISTS idx_faculty_user_id ON faculty (user_id);
+  CREATE INDEX IF NOT EXISTS idx_admin_user_id ON admin (user_id);
+`;
+
 export const VALID_ROLES = ['student', 'faculty', 'admin'];
 
 export const ALL_SCHEMAS = [
@@ -102,7 +119,8 @@ export const ALL_SCHEMAS = [
   USERS_INDEXES_SQL,
   ROLE_SCHEMAS.student,
   ROLE_SCHEMAS.faculty,
-  ROLE_SCHEMAS.admin
+  ROLE_SCHEMAS.admin,
+  MIGRATIONS_SQL
 ];
 
 export default {
@@ -111,6 +129,7 @@ export default {
   USERS_SCHEMA,
   USERS_INDEXES_SQL,
   ROLE_SCHEMAS,
+  MIGRATIONS_SQL,
   VALID_ROLES,
   ALL_SCHEMAS
 };

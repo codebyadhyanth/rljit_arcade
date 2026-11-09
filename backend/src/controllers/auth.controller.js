@@ -18,9 +18,10 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 /**
  * A. POST /api/v1/auth/bootstrap-super-admin
- * Step 1: First-time setup to bootstrap the initial Super Admin
+ * Step 1: First-time setup to bootstrap the initial Super Admin with atomic dual-table persistence
  */
 export async function bootstrapSuperAdmin(req, res) {
+  let client = null;
   try {
     await ensureDatabaseExists();
 
@@ -65,21 +66,25 @@ export async function bootstrapSuperAdmin(req, res) {
     const emailBidx = createBlindIndex(email);
     const phoneBidx = createBlindIndex(phone);
 
-    // 4. Generate RLSUPER001
-    const username = await generateUsername({ adminTier: 'SUPER_ADMIN' }, pool);
+    // 4. Begin atomic transaction for dual-table persistence
+    client = await pool.connect();
+    await client.query('BEGIN');
 
-    // 5. Insert into users
-    const insertQuery = `
+    // Generate atomic username RLSUPER001 using the transactional client
+    const username = await generateUsername({ adminTier: 'SUPER_ADMIN' }, client);
+
+    // Insert into users table
+    const insertUserQuery = `
       INSERT INTO users (
         username, password_hash, full_name_encrypted, email_encrypted, phone_encrypted,
         email_bidx, phone_bidx, base_role, admin_tier, sub_roles, permissions,
         must_change_password, is_active
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'ADMIN', 'SUPER_ADMIN', $8, $9, TRUE, TRUE)
-      RETURNING id, username, base_role, admin_tier, permissions, created_at;
+      RETURNING id, username, xmin::text AS xmin, ctid::text AS ctid, created_at;
     `;
 
-    await pool.query(insertQuery, [
+    const userResult = await client.query(insertUserQuery, [
       username,
       passwordHash,
       fullNameEnc,
@@ -91,35 +96,63 @@ export async function bootstrapSuperAdmin(req, res) {
       ['*'],
     ]);
 
-    // Sync into admin table for diagnostic visibility
-    await pool.query(
-      `INSERT INTO admin (admin_code, full_name, email, section_role, is_mastermind)
-       VALUES ($1, $2, $3, 'SUPER_ADMIN', TRUE)
-       ON CONFLICT (admin_code) DO NOTHING;`,
-      [username, fullName, email]
+    const userRow = userResult.rows[0];
+
+    // Dual-table sync into admin table linked via user_id
+    await client.query(
+      `INSERT INTO admin (user_id, admin_code, full_name, email, section_role, is_mastermind)
+       VALUES ($1, $2, $3, $4, 'SUPER_ADMIN', TRUE)
+       ON CONFLICT (admin_code) DO UPDATE SET
+         user_id = EXCLUDED.user_id,
+         full_name = EXCLUDED.full_name,
+         email = EXCLUDED.email,
+         section_role = EXCLUDED.section_role;`,
+      [userRow.id, username, fullName, email]
     );
+
+    await client.query('COMMIT');
 
     return res.status(201).json({
       success: true,
       message: 'Super Admin successfully bootstrapped',
       username,
       temporaryPassword,
+      dbReceipt: {
+        persisted: true,
+        userId: userRow.id,
+        pgTransactionId: userRow.xmin,
+        physicalDiskTuple: userRow.ctid,
+        storedInTables: ['users', 'admin'],
+        timestamp: userRow.created_at,
+      },
       redirectUrl: '/portal/super-admin/mastermind-home',
     });
   } catch (error) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rbErr) {
+        console.error('Rollback error on bootstrap:', rbErr.message);
+      }
+    }
     console.error('Bootstrap Super Admin error:', error);
     return res.status(500).json({
       success: false,
       error: error.message || 'Failed to bootstrap Super Admin',
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 }
 
 /**
  * B. POST /api/v1/super-admin/provision-authority
- * Step 2: Super Admin provisions Admission Admin, HODs, or Faculty
+ * Step 2: Super Admin provisions Admission Admin, HODs, or Faculty with atomic dual-table persistence
  */
 export async function provisionAuthority(req, res) {
+  let client = null;
   try {
     await ensureDatabaseExists();
 
@@ -149,6 +182,7 @@ export async function provisionAuthority(req, res) {
     let permissions = [];
     let assignedSubRoles = Array.isArray(subRoles) ? [...subRoles] : [];
     let redirectUrl = '';
+    let targetRoleTable = '';
 
     // 1. REGULAR_ADMIN
     if (authType === 'REGULAR_ADMIN') {
@@ -162,6 +196,7 @@ export async function provisionAuthority(req, res) {
 
       baseRole = 'ADMIN';
       adminTier = 'REGULAR_ADMIN';
+      targetRoleTable = 'admin';
       if (!assignedSubRoles.includes(sec)) assignedSubRoles.push(sec);
 
       if (sec === 'ADM') {
@@ -200,6 +235,7 @@ export async function provisionAuthority(req, res) {
 
       baseRole = 'FACULTY';
       adminTier = 'HOD_ADMIN';
+      targetRoleTable = 'faculty';
       if (!assignedSubRoles.includes('HOD')) assignedSubRoles.push('HOD');
       permissions = [
         'student:create:dept',
@@ -220,6 +256,7 @@ export async function provisionAuthority(req, res) {
 
       baseRole = 'FACULTY';
       adminTier = null;
+      targetRoleTable = 'faculty';
       if (assignedSubRoles.length === 0) assignedSubRoles.push('TEACHER');
       permissions = ['student:read:dept', 'attendance:mark', 'portal:faculty:access'];
       redirectUrl = '/portal/faculty/home';
@@ -246,17 +283,6 @@ export async function provisionAuthority(req, res) {
       });
     }
 
-    // Generate atomic username
-    const username = await generateUsername(
-      {
-        role: baseRole,
-        adminTier,
-        sectionCode: sec,
-        department: dept,
-      },
-      pool
-    );
-
     const temporaryPassword = generateTempPassword(12);
     const passwordHash = await hashPassword(temporaryPassword);
 
@@ -264,18 +290,33 @@ export async function provisionAuthority(req, res) {
     const emailEnc = encryptAES(email);
     const phoneEnc = encryptAES(phone);
 
-    const insertQuery = `
+    // Begin atomic transaction
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // Generate atomic username inside transaction
+    const username = await generateUsername(
+      {
+        role: baseRole,
+        adminTier,
+        sectionCode: sec,
+        department: dept,
+      },
+      client
+    );
+
+    const insertUserQuery = `
       INSERT INTO users (
         username, password_hash, full_name_encrypted, email_encrypted, phone_encrypted,
         email_bidx, phone_bidx, base_role, admin_tier, sub_roles, permissions,
         department, section_code, created_by, must_change_password, is_active
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE, TRUE)
-      RETURNING id, username, base_role, admin_tier, sub_roles, permissions, department, section_code;
+      RETURNING id, username, xmin::text AS xmin, ctid::text AS ctid, created_at;
     `;
 
-    const creatorId = req.user?.userId || null;
-    await pool.query(insertQuery, [
+    const creatorId = req.user?.userId || req.user?.id || null;
+    const userResult = await client.query(insertUserQuery, [
       username,
       passwordHash,
       fullNameEnc,
@@ -292,22 +333,44 @@ export async function provisionAuthority(req, res) {
       creatorId,
     ]);
 
-    // Sync into legacy faculty or admin table
+    const userRow = userResult.rows[0];
+
+    // Dual-table sync into corresponding role table linked via user_id
     if (baseRole === 'FACULTY') {
-      await pool.query(
-        `INSERT INTO faculty (emp_id, full_name, email, department, designation, is_hod)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (emp_id) DO NOTHING;`,
-        [username, fullName, email, dept, adminTier === 'HOD_ADMIN' ? 'HOD' : 'Assistant Professor', adminTier === 'HOD_ADMIN']
+      await client.query(
+        `INSERT INTO faculty (user_id, emp_id, full_name, email, department, designation, is_hod)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (emp_id) DO UPDATE SET
+           user_id = EXCLUDED.user_id,
+           full_name = EXCLUDED.full_name,
+           email = EXCLUDED.email,
+           department = EXCLUDED.department,
+           designation = EXCLUDED.designation,
+           is_hod = EXCLUDED.is_hod;`,
+        [
+          userRow.id,
+          username,
+          fullName,
+          email,
+          dept,
+          adminTier === 'HOD_ADMIN' ? 'HOD' : 'Assistant Professor',
+          adminTier === 'HOD_ADMIN',
+        ]
       );
     } else if (baseRole === 'ADMIN') {
-      await pool.query(
-        `INSERT INTO admin (admin_code, full_name, email, section_role, is_mastermind)
-         VALUES ($1, $2, $3, $4, FALSE)
-         ON CONFLICT (admin_code) DO NOTHING;`,
-        [username, fullName, email, sec]
+      await client.query(
+        `INSERT INTO admin (user_id, admin_code, full_name, email, section_role, is_mastermind)
+         VALUES ($1, $2, $3, $4, $5, FALSE)
+         ON CONFLICT (admin_code) DO UPDATE SET
+           user_id = EXCLUDED.user_id,
+           full_name = EXCLUDED.full_name,
+           email = EXCLUDED.email,
+           section_role = EXCLUDED.section_role;`,
+        [userRow.id, username, fullName, email, sec]
       );
     }
+
+    await client.query('COMMIT');
 
     return res.status(201).json({
       success: true,
@@ -322,22 +385,42 @@ export async function provisionAuthority(req, res) {
         department: dept,
         sectionCode: sec,
       },
+      dbReceipt: {
+        persisted: true,
+        userId: userRow.id,
+        pgTransactionId: userRow.xmin,
+        physicalDiskTuple: userRow.ctid,
+        storedInTables: ['users', targetRoleTable],
+        timestamp: userRow.created_at,
+      },
       redirectUrl,
     });
   } catch (error) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rbErr) {
+        console.error('Rollback error on authority provisioning:', rbErr.message);
+      }
+    }
     console.error('Provision Authority error:', error);
     return res.status(500).json({
       success: false,
       error: error.message || 'Failed to provision authority',
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 }
 
 /**
  * C. POST /api/v1/portals/provision-student
- * Step 3: Student creation via Admission Portal or HOD Admin Portal
+ * Step 3: Student creation via Admission Portal or HOD Admin Portal with atomic dual-table persistence
  */
 export async function provisionStudent(req, res) {
+  let client = null;
   try {
     await ensureDatabaseExists();
 
@@ -416,17 +499,6 @@ export async function provisionStudent(req, res) {
       });
     }
 
-    // Generate atomic student USN: 1RL${YY}${DEPT}001 or 1RL${YY}${DEPT}401
-    const usn = await generateUsername(
-      {
-        role: 'STUDENT',
-        department: targetDept,
-        admissionYear: year,
-        entryType: entry,
-      },
-      pool
-    );
-
     const temporaryPassword = generateTempPassword(12);
     const passwordHash = await hashPassword(temporaryPassword);
 
@@ -436,6 +508,23 @@ export async function provisionStudent(req, res) {
 
     const studentSubRoles = Array.isArray(subRoles) && subRoles.length > 0 ? subRoles : ['STUDENT'];
 
+    // Begin atomic transaction
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // Generate atomic student USN: 1RL${YY}${DEPT}001 or 1RL${YY}${DEPT}401 inside transaction
+    const usn = await generateUsername(
+      {
+        role: 'STUDENT',
+        department: targetDept,
+        admissionYear: year,
+        entryType: entry,
+      },
+      client
+    );
+
+    const creatorId = currentUser?.userId || currentUser?.id || null;
+
     const insertUserQuery = `
       INSERT INTO users (
         username, password_hash, full_name_encrypted, email_encrypted, phone_encrypted,
@@ -444,12 +533,10 @@ export async function provisionStudent(req, res) {
         must_change_password, is_active
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'STUDENT', NULL, $8, $9, $10, $11, $12, $13, $14, TRUE, TRUE)
-      RETURNING id, username, created_at;
+      RETURNING id, username, xmin::text AS xmin, ctid::text AS ctid, created_at;
     `;
 
-    const creatorId = currentUser?.userId || currentUser?.id || null;
-
-    const userResult = await pool.query(insertUserQuery, [
+    const userResult = await client.query(insertUserQuery, [
       usn,
       passwordHash,
       fullNameEnc,
@@ -466,19 +553,23 @@ export async function provisionStudent(req, res) {
       creatorId,
     ]);
 
-    const createdStudent = userResult.rows[0];
+    const userRow = userResult.rows[0];
 
-    // Sync into student table
-    await pool.query(
-      `INSERT INTO student (usn, full_name, email, department, semester, entry_type, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
+    // Dual-table sync into student table linked via user_id
+    await client.query(
+      `INSERT INTO student (user_id, usn, full_name, email, department, semester, entry_type, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE')
        ON CONFLICT (usn) DO UPDATE SET
+         user_id = EXCLUDED.user_id,
          full_name = EXCLUDED.full_name,
          email = EXCLUDED.email,
          department = EXCLUDED.department,
-         semester = EXCLUDED.semester;`,
-      [usn, fullName, email, targetDept, sem, entry]
+         semester = EXCLUDED.semester,
+         entry_type = EXCLUDED.entry_type;`,
+      [userRow.id, usn, fullName, email, targetDept, sem, entry]
     );
+
+    await client.query('COMMIT');
 
     return res.status(201).json({
       success: true,
@@ -489,7 +580,7 @@ export async function provisionStudent(req, res) {
         temporaryPassword,
       },
       studentProfile: {
-        id: createdStudent.id,
+        id: userRow.id,
         usn,
         fullName,
         email,
@@ -499,20 +590,39 @@ export async function provisionStudent(req, res) {
         semester: sem,
         entryType: entry,
       },
+      dbReceipt: {
+        persisted: true,
+        userId: userRow.id,
+        pgTransactionId: userRow.xmin,
+        physicalDiskTuple: userRow.ctid,
+        storedInTables: ['users', 'student'],
+        timestamp: userRow.created_at,
+      },
       redirectUrl: '/portal/student/home',
     });
   } catch (error) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rbErr) {
+        console.error('Rollback error on student provisioning:', rbErr.message);
+      }
+    }
     console.error('Provision Student error:', error);
     return res.status(500).json({
       success: false,
       error: error.message || 'Failed to provision student',
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 }
 
 /**
  * D. POST /api/v1/auth/login
- * Verifies credentials, computes exact portal redirectUrl, returns JWT
+ * Verifies credentials against live PostgreSQL, updates login audit stats, returns JWT + auditReceipt
  */
 export async function login(req, res) {
   try {
@@ -530,7 +640,7 @@ export async function login(req, res) {
 
     let user = null;
 
-    // Lookup strategy: email, phone, or username
+    // Lookup strategy: email, phone, or username directly against PostgreSQL
     if (inputIdentifier.includes('@')) {
       const emailBidx = createBlindIndex(inputIdentifier);
       const result = await pool.query('SELECT * FROM users WHERE email_bidx = $1', [emailBidx]);
@@ -570,6 +680,17 @@ export async function login(req, res) {
         error: 'Account is deactivated. Please contact administration.',
       });
     }
+
+    // Live PostgreSQL update to prove persistent DB read/write
+    const updateAuditQuery = `
+      UPDATE users
+      SET login_count = COALESCE(login_count, 0) + 1,
+          last_login_at = NOW()
+      WHERE id = $1
+      RETURNING login_count, last_login_at, xmin::text AS xmin, ctid::text AS ctid;
+    `;
+    const auditRes = await pool.query(updateAuditQuery, [user.id]);
+    const auditRow = auditRes.rows[0];
 
     // Compute exact portal redirectUrl based on role tier
     let redirectUrl = '/portal/student/home';
@@ -630,6 +751,13 @@ export async function login(req, res) {
         sectionCode: user.section_code,
         mustChangePassword: user.must_change_password,
       },
+      auditReceipt: {
+        loginCount: auditRow.login_count,
+        lastLoginAt: auditRow.last_login_at,
+        pgTransactionId: auditRow.xmin,
+        physicalDiskTuple: auditRow.ctid,
+        persistedToDatabase: true,
+      },
       redirectUrl,
     });
   } catch (error) {
@@ -667,7 +795,7 @@ export async function searchUsers(req, res) {
       const result = await pool.query(
         `SELECT id, username, full_name_encrypted, email_encrypted, phone_encrypted,
                 base_role, admin_tier, sub_roles, permissions, department, section_code,
-                admission_year, semester, entry_type, is_active, created_at
+                admission_year, semester, entry_type, login_count, last_login_at, is_active, created_at
          FROM users
          WHERE email_bidx = $1 OR phone_bidx = $1
          LIMIT 20`,
@@ -682,7 +810,7 @@ export async function searchUsers(req, res) {
       const trigramQuery = `
         SELECT id, username, full_name_encrypted, email_encrypted, phone_encrypted,
                base_role, admin_tier, sub_roles, permissions, department, section_code,
-               admission_year, semester, entry_type, is_active, created_at,
+               admission_year, semester, entry_type, login_count, last_login_at, is_active, created_at,
                similarity(username, $1) as score
         FROM users
         WHERE username ILIKE $2 OR username % $1
@@ -709,6 +837,8 @@ export async function searchUsers(req, res) {
       admissionYear: row.admission_year,
       semester: row.semester,
       entryType: row.entry_type,
+      loginCount: row.login_count,
+      lastLoginAt: row.last_login_at,
       isActive: row.is_active,
       createdAt: row.created_at,
     }));
@@ -728,11 +858,159 @@ export async function searchUsers(req, res) {
   }
 }
 
+/**
+ * F. GET /api/v1/db/verify-storage
+ * Postman DB Storage Inspector: returns live table row counts, raw DB proof, and decrypted previews
+ * Accessible via Super Admin JWT or x-bootstrap-key header
+ */
+export async function verifyDbStorage(req, res) {
+  try {
+    await ensureDatabaseExists();
+
+    // Verification check: requires either x-bootstrap-key or Super Admin Bearer JWT
+    const bootstrapKey = req.headers['x-bootstrap-key'];
+    const expectedKey =
+      process.env.BOOTSTRAP_SECRET || 'RLJIT_SUPER_MASTERMIND_BOOTSTRAP_KEY_2026';
+    const isBootstrapValid = bootstrapKey && bootstrapKey === expectedKey;
+
+    let isSuperAdminJwt = false;
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (authHeader) {
+      const parts = authHeader.split(' ');
+      const token = parts.length === 2 && /^Bearer$/i.test(parts[0]) ? parts[1] : authHeader;
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded && decoded.adminTier === 'SUPER_ADMIN') {
+          isSuperAdminJwt = true;
+        }
+      } catch {
+        // Continue to check fallback
+      }
+    }
+
+    if (!isBootstrapValid && !isSuperAdminJwt) {
+      return res.status(403).json({
+        success: false,
+        error:
+          'Forbidden: Access requires either a Super Admin Bearer token or valid x-bootstrap-key header',
+      });
+    }
+
+    // 1. Live row counts from all persistence tables
+    const countQuery = `
+      SELECT
+        (SELECT COUNT(*) FROM users) AS users_count,
+        (SELECT COUNT(*) FROM admin) AS admin_count,
+        (SELECT COUNT(*) FROM faculty) AS faculty_count,
+        (SELECT COUNT(*) FROM student) AS student_count,
+        (SELECT COUNT(*) FROM id_sequences) AS sequences_count;
+    `;
+    const countsRes = await pool.query(countQuery);
+    const countsRow = countsRes.rows[0];
+
+    // 2. Fetch latest 20 users with dual-table relational LEFT JOINs
+    const recordsQuery = `
+      SELECT 
+        u.id, u.username, u.password_hash, u.full_name_encrypted, u.email_encrypted, u.phone_encrypted,
+        u.email_bidx, u.phone_bidx, u.base_role, u.admin_tier, u.sub_roles, u.permissions,
+        u.department, u.section_code, u.admission_year, u.semester, u.entry_type,
+        u.login_count, u.last_login_at, u.is_active, u.created_at,
+        u.xmin::text AS pg_xmin, u.ctid::text AS pg_ctid,
+        a.id AS admin_id, a.admin_code, a.section_role, a.is_mastermind,
+        f.id AS faculty_id, f.emp_id, f.designation, f.is_hod,
+        s.id AS student_id, s.usn, s.status AS student_status
+      FROM users u
+      LEFT JOIN admin a ON a.user_id = u.id
+      LEFT JOIN faculty f ON f.user_id = u.id
+      LEFT JOIN student s ON s.user_id = u.id
+      ORDER BY u.created_at DESC
+      LIMIT 20;
+    `;
+
+    const recordsRes = await pool.query(recordsQuery);
+
+    const records = recordsRes.rows.map((row) => ({
+      metadata: {
+        id: row.id,
+        username: row.username,
+        base_role: row.base_role,
+        admin_tier: row.admin_tier,
+        department: row.department,
+        section_code: row.section_code,
+        admission_year: row.admission_year,
+        semester: row.semester,
+        entry_type: row.entry_type,
+        login_count: row.login_count,
+        last_login_at: row.last_login_at,
+        is_active: row.is_active,
+        pg_xmin: row.pg_xmin,
+        pg_ctid: row.pg_ctid,
+        created_at: row.created_at,
+        linkedRoleRecord: row.admin_id
+          ? {
+              table: 'admin',
+              id: row.admin_id,
+              adminCode: row.admin_code,
+              sectionRole: row.section_role,
+              isMastermind: row.is_mastermind,
+            }
+          : row.faculty_id
+          ? {
+              table: 'faculty',
+              id: row.faculty_id,
+              empId: row.emp_id,
+              designation: row.designation,
+              isHod: row.is_hod,
+            }
+          : row.student_id
+          ? {
+              table: 'student',
+              id: row.student_id,
+              usn: row.usn,
+              status: row.student_status,
+            }
+          : null,
+      },
+      rawDatabaseProof: {
+        passwordHashPrefix: row.password_hash ? `${row.password_hash.slice(0, 28)}...` : null,
+        emailCiphertext: row.email_encrypted,
+        emailBlindIndex: row.email_bidx,
+        phoneBlindIndex: row.phone_bidx,
+      },
+      decryptedPreview: {
+        fullName: decryptAES(row.full_name_encrypted),
+        email: decryptAES(row.email_encrypted),
+        phone: decryptAES(row.phone_encrypted),
+      },
+    }));
+
+    return res.status(200).json({
+      success: true,
+      database: 'rljit_arcade',
+      liveTableCounts: {
+        users: parseInt(countsRow.users_count, 10),
+        admin: parseInt(countsRow.admin_count, 10),
+        faculty: parseInt(countsRow.faculty_count, 10),
+        student: parseInt(countsRow.student_count, 10),
+        id_sequences: parseInt(countsRow.sequences_count, 10),
+      },
+      recordsCount: records.length,
+      records,
+    });
+  } catch (error) {
+    console.error('Verify DB Storage error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to inspect database storage',
+    });
+  }
+}
+
 export default {
   bootstrapSuperAdmin,
   provisionAuthority,
   provisionStudent,
   login,
   searchUsers,
+  verifyDbStorage,
 };
-
