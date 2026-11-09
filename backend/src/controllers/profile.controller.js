@@ -213,7 +213,7 @@ export async function getDashboardMetrics(req, res) {
 
       // Pending leave requests for mentees
       const leavesRes = await pool.query(
-        'SELECT COUNT(*) AS pending_leaves FROM lg_leave_requests WHERE lg_faculty_id = $1 AND status = 'PENDING'',
+        "SELECT COUNT(*) AS pending_leaves FROM lg_leave_requests WHERE lg_faculty_id = $1 AND status = 'PENDING'",
         [userId]
       );
 
