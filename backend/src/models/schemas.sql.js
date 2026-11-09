@@ -1,7 +1,8 @@
 /**
  * SQL DDL Schemas for RLJIT Arcade Database
- * Includes RBAC users, cryptographic blind indexes, atomic ID sequences, role tables,
- * and foreign key dual-table sync with cascading references.
+ * Complete Enterprise Architecture including RBAC, Dual-Table Relational Sync,
+ * Timetable & Swaps, Academic OCR & Lock/Unlock Auditing, LG Mentorship,
+ * Document Vault, and Student Finance Ledgers.
  */
 
 export const EXTENSIONS_SQL = `
@@ -35,9 +36,11 @@ export const USERS_SCHEMA = `
     admission_year INT,
     semester INT,
     entry_type VARCHAR(16),
-    created_by UUID REFERENCES users(id),
+    avatar_url TEXT,
+    token_version INT DEFAULT 1,
     login_count INT DEFAULT 0,
     last_login_at TIMESTAMPTZ,
+    created_by UUID REFERENCES users(id),
     must_change_password BOOLEAN DEFAULT TRUE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -66,7 +69,10 @@ export const ROLE_SCHEMAS = {
       semester INT,
       section VARCHAR(10),
       entry_type VARCHAR(50) DEFAULT 'REGULAR',
-      lg_faculty_id INT,
+      lg_faculty_id UUID REFERENCES users(id),
+      parent_whatsapp_encrypted TEXT,
+      admission_quota VARCHAR(32) DEFAULT 'KEA_CET',
+      cgpa NUMERIC(4,2) DEFAULT 0.00,
       status VARCHAR(50) DEFAULT 'ACTIVE',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -80,6 +86,7 @@ export const ROLE_SCHEMAS = {
       email VARCHAR(255) UNIQUE,
       department VARCHAR(100),
       designation VARCHAR(100),
+      cabin_room VARCHAR(32),
       is_lg_coordinator BOOLEAN DEFAULT FALSE,
       is_hod BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW()
@@ -99,15 +106,176 @@ export const ROLE_SCHEMAS = {
   `
 };
 
+export const DOMAIN_TABLES_SQL = `
+  -- Module 2: Master Timetable & Class Swap Engine
+  CREATE TABLE IF NOT EXISTS timetables (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    department VARCHAR(16) NOT NULL,
+    semester INT NOT NULL,
+    section VARCHAR(8) NOT NULL,
+    day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 6),
+    period_no INT NOT NULL,
+    subject_code VARCHAR(20) NOT NULL,
+    faculty_id UUID REFERENCES users(id),
+    room_no VARCHAR(20),
+    UNIQUE(department, semester, section, day_of_week, period_no)
+  );
+
+  CREATE TABLE IF NOT EXISTS timetable_swaps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    timetable_id UUID REFERENCES timetables(id) ON DELETE CASCADE,
+    swap_date DATE NOT NULL,
+    requesting_faculty_id UUID REFERENCES users(id),
+    target_faculty_id UUID REFERENCES users(id),
+    new_subject_code VARCHAR(20),
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  -- Module 3: OCR Attendance & CIE Marks + EOD Lock + Dual-Approval Unlock
+  CREATE TABLE IF NOT EXISTS ocr_staging_batches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    faculty_id UUID REFERENCES users(id),
+    record_type VARCHAR(20) CHECK (record_type IN ('ATTENDANCE','CIE_MARKS')),
+    department VARCHAR(16),
+    semester INT,
+    section VARCHAR(8),
+    subject_code VARCHAR(20),
+    image_path TEXT,
+    extracted_json JSONB,
+    status VARCHAR(20) DEFAULT 'DRAFT',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS academic_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_usn VARCHAR(32) NOT NULL,
+    subject_code VARCHAR(20) NOT NULL,
+    department VARCHAR(16),
+    semester INT,
+    section VARCHAR(8),
+    record_type VARCHAR(20) CHECK (record_type IN ('ATTENDANCE','CIE_1','CIE_2','CIE_3','ASSIGNMENT','OVERALL_INTERNAL')),
+    session_date DATE DEFAULT CURRENT_DATE,
+    period_no INT,
+    attendance_status VARCHAR(12) CHECK (attendance_status IN ('P','A','OD_PRESENT', NULL)),
+    marks_obtained NUMERIC(5,2),
+    max_marks NUMERIC(5,2),
+    recorded_by UUID REFERENCES users(id),
+    locked_after TIMESTAMPTZ NOT NULL,
+    is_unlocked_override BOOLEAN DEFAULT FALSE,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS record_unlock_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    academic_record_id UUID REFERENCES academic_records(id) ON DELETE CASCADE,
+    student_usn VARCHAR(32),
+    requested_by UUID REFERENCES users(id),
+    department VARCHAR(16),
+    current_val TEXT,
+    proposed_val TEXT,
+    reason TEXT NOT NULL,
+    hod_status VARCHAR(20) DEFAULT 'PENDING',
+    hod_approved_by UUID REFERENCES users(id),
+    principal_status VARCHAR(20) DEFAULT 'PENDING',
+    principal_approved_by UUID REFERENCES users(id),
+    is_consumed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS academic_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    academic_record_id UUID,
+    unlock_request_id UUID,
+    student_usn VARCHAR(32),
+    old_val TEXT,
+    new_val TEXT,
+    changed_by UUID REFERENCES users(id),
+    hod_id UUID REFERENCES users(id),
+    principal_id UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  -- Module 4: Local Guardian (LG) Mentorship & Leave Lifecycle
+  CREATE TABLE IF NOT EXISTS lg_leave_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_usn VARCHAR(32),
+    lg_faculty_id UUID REFERENCES users(id),
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    reason TEXT,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    parent_notified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  -- Module 5: Admission Document Vault & Student Finance Ledgers
+  CREATE TABLE IF NOT EXISTS student_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_usn VARCHAR(32) NOT NULL,
+    doc_type VARCHAR(40) NOT NULL,
+    file_path TEXT NOT NULL,
+    verification_status VARCHAR(24) DEFAULT 'PENDING_REVIEW' CHECK (verification_status IN ('PENDING_REVIEW','VERIFIED','REJECTED')),
+    custody_status VARCHAR(32) DEFAULT 'SUBMITTED_TO_ADMISSION_DEPT' CHECK (custody_status IN ('WITH_STUDENT','SUBMITTED_TO_ADMISSION_DEPT','RETURNED_TO_STUDENT')),
+    verified_by UUID REFERENCES users(id),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS finance_ledgers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_usn VARCHAR(32) NOT NULL,
+    category VARCHAR(20) CHECK (category IN ('TUITION_FEE','EXAM_FEE','MISC_FEE','FINE')),
+    title VARCHAR(100) NOT NULL,
+    total_amount NUMERIC(10,2) NOT NULL,
+    paid_amount NUMERIC(10,2) DEFAULT 0.00,
+    due_date DATE,
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING','PARTIAL','PAID','WAIVED')),
+    imposed_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS finance_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ledger_id UUID REFERENCES finance_ledgers(id) ON DELETE CASCADE,
+    student_usn VARCHAR(32) NOT NULL,
+    amount_paid NUMERIC(10,2) NOT NULL,
+    payment_mode VARCHAR(20),
+    ref_no_encrypted TEXT,
+    recorded_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+`;
+
 export const MIGRATIONS_SQL = `
+  -- Users table migrations
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT DEFAULT 1;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INT DEFAULT 0;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+
+  -- Student table migrations
   ALTER TABLE student ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
+  ALTER TABLE student ADD COLUMN IF NOT EXISTS lg_faculty_id UUID REFERENCES users(id);
+  ALTER TABLE student ADD COLUMN IF NOT EXISTS parent_whatsapp_encrypted TEXT;
+  ALTER TABLE student ADD COLUMN IF NOT EXISTS admission_quota VARCHAR(32) DEFAULT 'KEA_CET';
+  ALTER TABLE student ADD COLUMN IF NOT EXISTS cgpa NUMERIC(4,2) DEFAULT 0.00;
+
+  -- Faculty table migrations
   ALTER TABLE faculty ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
+  ALTER TABLE faculty ADD COLUMN IF NOT EXISTS cabin_room VARCHAR(32);
+
+  -- Admin table migrations
   ALTER TABLE admin ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
+
+  -- Indexes for performance
   CREATE INDEX IF NOT EXISTS idx_student_user_id ON student (user_id);
+  CREATE INDEX IF NOT EXISTS idx_student_lg_faculty_id ON student (lg_faculty_id);
   CREATE INDEX IF NOT EXISTS idx_faculty_user_id ON faculty (user_id);
   CREATE INDEX IF NOT EXISTS idx_admin_user_id ON admin (user_id);
+  CREATE INDEX IF NOT EXISTS idx_timetables_slot ON timetables (department, semester, section, day_of_week);
+  CREATE INDEX IF NOT EXISTS idx_academic_records_lookup ON academic_records (student_usn, subject_code, record_type);
+  CREATE INDEX IF NOT EXISTS idx_finance_ledgers_usn ON finance_ledgers (student_usn);
+  CREATE INDEX IF NOT EXISTS idx_student_documents_usn ON student_documents (student_usn);
 `;
 
 export const VALID_ROLES = ['student', 'faculty', 'admin'];
@@ -120,6 +288,7 @@ export const ALL_SCHEMAS = [
   ROLE_SCHEMAS.student,
   ROLE_SCHEMAS.faculty,
   ROLE_SCHEMAS.admin,
+  DOMAIN_TABLES_SQL,
   MIGRATIONS_SQL
 ];
 
@@ -129,6 +298,7 @@ export default {
   USERS_SCHEMA,
   USERS_INDEXES_SQL,
   ROLE_SCHEMAS,
+  DOMAIN_TABLES_SQL,
   MIGRATIONS_SQL,
   VALID_ROLES,
   ALL_SCHEMAS

@@ -14,6 +14,16 @@ import { generateUsername } from '../utils/username.util.js';
 const JWT_SECRET =
   process.env.JWT_SECRET ||
   'rljit_arcade_jwt_super_secure_secret_key_minimum_32_characters_2026';
+
+// Safe decryption helper to prevent inspector crashes
+function safeDecrypt(ciphertext) {
+  if (!ciphertext) return null;
+  try {
+    return decryptAES(ciphertext);
+  } catch {
+    return '[Protected / Decryption Error]';
+  }
+}
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 /**
@@ -727,6 +737,7 @@ export async function login(req, res) {
         permissions: user.permissions || [],
         department: user.department,
         sectionCode: user.section_code,
+        tokenVersion: user.token_version || 1,
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
@@ -859,7 +870,52 @@ export async function searchUsers(req, res) {
 }
 
 /**
- * F. GET /api/v1/db/verify-storage
+ * F. POST /api/v1/auth/logout
+ * Terminates user session and revokes JWT by incrementing token_version in PostgreSQL
+ */
+export async function logout(req, res) {
+  try {
+    await ensureDatabaseExists();
+    const userId = req.user?.userId || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Session identification missing',
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE users
+       SET token_version = COALESCE(token_version, 1) + 1
+       WHERE id = $1
+       RETURNING token_version;`,
+      [userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User account not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Session terminated and token invalidated',
+      revokedTokenVersion: result.rows[0].token_version,
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Logout failed',
+    });
+  }
+}
+
+/**
+ * G. GET /api/v1/db/verify-storage
  * Postman DB Storage Inspector: returns live table row counts, raw DB proof, and decrypted previews
  * Accessible via Super Admin JWT or x-bootstrap-key header
  */
@@ -896,25 +952,31 @@ export async function verifyDbStorage(req, res) {
       });
     }
 
-    // 1. Live row counts from all persistence tables
+    // 1. Live row counts from all persistence and domain tables
     const countQuery = `
       SELECT
         (SELECT COUNT(*) FROM users) AS users_count,
-        (SELECT COUNT(*) FROM admin) AS admin_count,
-        (SELECT COUNT(*) FROM faculty) AS faculty_count,
         (SELECT COUNT(*) FROM student) AS student_count,
-        (SELECT COUNT(*) FROM id_sequences) AS sequences_count;
+        (SELECT COUNT(*) FROM faculty) AS faculty_count,
+        (SELECT COUNT(*) FROM admin) AS admin_count,
+        (SELECT COUNT(*) FROM id_sequences) AS sequences_count,
+        (SELECT COUNT(*) FROM timetables) AS timetables_count,
+        (SELECT COUNT(*) FROM academic_records) AS academic_records_count,
+        (SELECT COUNT(*) FROM finance_ledgers) AS finance_ledgers_count,
+        (SELECT COUNT(*) FROM student_documents) AS student_documents_count,
+        (SELECT COUNT(*) FROM record_unlock_requests) AS unlock_requests_count,
+        (SELECT COUNT(*) FROM lg_leave_requests) AS leave_requests_count;
     `;
     const countsRes = await pool.query(countQuery);
     const countsRow = countsRes.rows[0];
 
-    // 2. Fetch latest 20 users with dual-table relational LEFT JOINs
+    // 2. Fetch latest 20 users with dual-table relational LEFT JOINs and explicit column qualifications
     const recordsQuery = `
       SELECT 
         u.id, u.username, u.password_hash, u.full_name_encrypted, u.email_encrypted, u.phone_encrypted,
         u.email_bidx, u.phone_bidx, u.base_role, u.admin_tier, u.sub_roles, u.permissions,
         u.department, u.section_code, u.admission_year, u.semester, u.entry_type,
-        u.login_count, u.last_login_at, u.is_active, u.created_at,
+        u.login_count, u.last_login_at, u.token_version, u.is_active, u.created_at,
         u.xmin::text AS pg_xmin, u.ctid::text AS pg_ctid,
         a.id AS admin_id, a.admin_code, a.section_role, a.is_mastermind,
         f.id AS faculty_id, f.emp_id, f.designation, f.is_hod,
@@ -942,6 +1004,7 @@ export async function verifyDbStorage(req, res) {
         entry_type: row.entry_type,
         login_count: row.login_count,
         last_login_at: row.last_login_at,
+        token_version: row.token_version,
         is_active: row.is_active,
         pg_xmin: row.pg_xmin,
         pg_ctid: row.pg_ctid,
@@ -978,9 +1041,9 @@ export async function verifyDbStorage(req, res) {
         phoneBlindIndex: row.phone_bidx,
       },
       decryptedPreview: {
-        fullName: decryptAES(row.full_name_encrypted),
-        email: decryptAES(row.email_encrypted),
-        phone: decryptAES(row.phone_encrypted),
+        fullName: safeDecrypt(row.full_name_encrypted),
+        email: safeDecrypt(row.email_encrypted),
+        phone: safeDecrypt(row.phone_encrypted),
       },
     }));
 
@@ -988,11 +1051,17 @@ export async function verifyDbStorage(req, res) {
       success: true,
       database: 'rljit_arcade',
       liveTableCounts: {
-        users: parseInt(countsRow.users_count, 10),
-        admin: parseInt(countsRow.admin_count, 10),
-        faculty: parseInt(countsRow.faculty_count, 10),
-        student: parseInt(countsRow.student_count, 10),
-        id_sequences: parseInt(countsRow.sequences_count, 10),
+        users: parseInt(countsRow.users_count || '0', 10),
+        student: parseInt(countsRow.student_count || '0', 10),
+        faculty: parseInt(countsRow.faculty_count || '0', 10),
+        admin: parseInt(countsRow.admin_count || '0', 10),
+        id_sequences: parseInt(countsRow.sequences_count || '0', 10),
+        timetables: parseInt(countsRow.timetables_count || '0', 10),
+        academic_records: parseInt(countsRow.academic_records_count || '0', 10),
+        finance_ledgers: parseInt(countsRow.finance_ledgers_count || '0', 10),
+        student_documents: parseInt(countsRow.student_documents_count || '0', 10),
+        record_unlock_requests: parseInt(countsRow.unlock_requests_count || '0', 10),
+        lg_leave_requests: parseInt(countsRow.leave_requests_count || '0', 10),
       },
       recordsCount: records.length,
       records,
@@ -1011,6 +1080,7 @@ export default {
   provisionAuthority,
   provisionStudent,
   login,
+  logout,
   searchUsers,
   verifyDbStorage,
 };
