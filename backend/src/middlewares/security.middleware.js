@@ -18,8 +18,12 @@ export function getCorsOptions() {
         return callback(null, true);
       }
 
-      // Check localhost patterns for dev environments
-      if (/^https?:\/\/localhost(:\d+)?$/.test(origin) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
+      // Check localhost and private LAN patterns for dev environments and mobile testing
+      if (
+        /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+        /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin)
+      ) {
         return callback(null, true);
       }
 
