@@ -1,16 +1,40 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 
-// Default URLs for mobile:
-// Android Emulator uses 10.0.2.2 to access host machine localhost
-// iOS Simulator uses localhost
-// Physical device uses LAN IP e.g. 192.168.1.5
-const DEFAULT_URL = Platform.select({
-  android: 'http://10.0.2.2:5000',
-  ios: 'http://localhost:5000',
-  default: 'http://localhost:5000',
-});
+// Helper to strip trailing slashes so route concatenation never produces double slashes
+const sanitizeUrl = (url) => (url ? url.trim().replace(/\/+$/, '') : '');
+
+// Multi-Layer Base URL Resolution
+export const getDynamicBaseUrl = () => {
+  // Priority 1: Environment variable configured in mobile-app/.env
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return sanitizeUrl(process.env.EXPO_PUBLIC_API_URL);
+  }
+
+  // Priority 2: Extract host PC LAN IP from running Metro bundler scriptURL
+  const scriptURL = NativeModules?.SourceCode?.scriptURL;
+  if (scriptURL) {
+    const match = scriptURL.match(/^https?:\/\/([^:/]+)/);
+    if (match && match[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
+      return `http://${match[1]}:5000`;
+    }
+  }
+
+  // Priority 3: Fall back to explicit Wi-Fi LAN IP (192.168.31.244)
+  const defaultFallback = Platform.select({
+    android: 'http://192.168.31.244:5000',
+    ios: 'http://localhost:5000',
+    default: 'http://192.168.31.244:5000',
+  });
+
+  return sanitizeUrl(defaultFallback);
+};
+
+const REQUEST_TIMEOUT =
+  Number(process.env.EXPO_PUBLIC_REQUEST_TIMEOUT) || 15000;
+
+const DEFAULT_URL = getDynamicBaseUrl();
 
 let currentBaseUrl = DEFAULT_URL;
 let inMemoryToken = null;
@@ -23,7 +47,7 @@ export const getBaseUrl = () => currentBaseUrl;
 
 export const setBaseUrl = async (url) => {
   if (!url) return;
-  currentBaseUrl = url.trim();
+  currentBaseUrl = sanitizeUrl(url);
   try {
     if (Platform.OS !== 'web') {
       await SecureStore.setItemAsync(BASE_URL_KEY, currentBaseUrl);
@@ -37,7 +61,11 @@ export const initBaseUrl = async () => {
   try {
     if (Platform.OS !== 'web') {
       const saved = await SecureStore.getItemAsync(BASE_URL_KEY);
-      if (saved) currentBaseUrl = saved;
+      if (saved) {
+        currentBaseUrl = sanitizeUrl(saved);
+      } else {
+        currentBaseUrl = getDynamicBaseUrl();
+      }
     }
   } catch (err) {
     // Keep default
@@ -91,7 +119,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000,
+  timeout: REQUEST_TIMEOUT,
 });
 
 api.interceptors.request.use(
@@ -109,6 +137,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Diagnostic Network Error: attach clear actionable advice when backend is unreachable
+    if (!error.response) {
+      const target = api.defaults.baseURL || currentBaseUrl;
+      const diagMsg = `Network Error: Cannot reach backend at ${target}. Ensure PC and phone are on the same Wi-Fi and Windows Firewall port 5000 is open.`;
+      error.userMessage = diagMsg;
+      error.message = diagMsg;
+    }
+
     if (error.response?.status === 401) {
       const isLogin = error.config?.url?.includes('/auth/login');
       if (!isLogin) {
@@ -120,4 +156,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-

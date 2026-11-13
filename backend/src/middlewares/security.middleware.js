@@ -11,23 +11,25 @@ export function getCorsOptions() {
 
   return {
     origin: (origin, callback) => {
-      // Allow requests with no origin (such as mobile apps, Postman, curl, or server-to-server)
+      // Allow requests with no origin (such as native mobile apps, Postman, curl, or server-to-server)
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // Check localhost and private LAN patterns for dev environments and mobile testing
+      // Check localhost, Expo schemes (exp://), and private LAN patterns for dev environments and mobile testing
       if (
         /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
         /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
-        /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin)
+        /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin) ||
+        /^exp:\/\//.test(origin)
       ) {
         return callback(null, true);
       }
 
-      return callback(new Error(`CORS blocked: Origin ${origin} not allowed`));
+      // Gracefully deny non-matching origins without unhandled exception crashes
+      return callback(null, false);
     },
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     credentials: true,

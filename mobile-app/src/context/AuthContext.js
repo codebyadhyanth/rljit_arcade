@@ -64,7 +64,12 @@ export const AuthProvider = ({ children }) => {
       }
       throw new Error(data.error || 'Authentication failed');
     } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Login error';
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.userMessage ||
+        err.message ||
+        'Login error';
       return { success: false, error: msg };
     } finally {
       setLoading(false);
@@ -96,7 +101,12 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       return {
         success: false,
-        error: err.response?.data?.error || err.message || 'Bootstrap error',
+        error:
+          err.response?.data?.error ||
+          err.response?.data?.message ||
+          err.userMessage ||
+          err.message ||
+          'Bootstrap error',
       };
     } finally {
       setLoading(false);

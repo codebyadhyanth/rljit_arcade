@@ -1,16 +1,29 @@
 import axios from 'axios';
 
-// Default backend API URL for Web Portal
-const DEFAULT_BASE_URL = 'http://localhost:5000';
+// Sanitize URL helper to guarantee no trailing slashes
+const sanitizeUrl = (url) => (url ? url.trim().replace(/\/+$/, '') : '');
+
+// Default backend API URL for Web Portal configured via Vite environment
+const DEFAULT_BASE_URL = sanitizeUrl(
+  import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.VITE_API_URL ||
+    'http://localhost:5000'
+);
+
+// Configurable request timeout
+const REQUEST_TIMEOUT =
+  Number(import.meta.env.VITE_REQUEST_TIMEOUT) || 15000;
 
 // Allow overriding via environment variable or localStorage
 export const getBaseUrl = () => {
-  return localStorage.getItem('rljit_api_base_url') || import.meta.env.VITE_API_URL || DEFAULT_BASE_URL;
+  const local = localStorage.getItem('rljit_api_base_url');
+  if (local) return sanitizeUrl(local);
+  return DEFAULT_BASE_URL;
 };
 
 export const setBaseUrl = (newUrl) => {
   if (newUrl) {
-    localStorage.setItem('rljit_api_base_url', newUrl.trim());
+    localStorage.setItem('rljit_api_base_url', sanitizeUrl(newUrl));
   } else {
     localStorage.removeItem('rljit_api_base_url');
   }
@@ -24,7 +37,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000,
+  timeout: REQUEST_TIMEOUT,
 });
 
 api.interceptors.request.use(
@@ -60,4 +73,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
