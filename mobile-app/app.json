@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "RLJIT Arcade",
+    "slug": "rljit-arcade-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E293B"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1E293B"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "RLJIT Arcade requires camera access to capture physical attendance sheets in the classroom."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "RLJIT Arcade requires access to your photos to upload scanned attendance sheets."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow RLJIT Arcade to use biometric security."
+        }
+      ],
+      "expo-secure-store",
+      "expo-status-bar"
+    ]
+  }
+}
