@@ -19,6 +19,7 @@ import timetableRoutes from './routes/timetable.routes.js';
 import academicRoutes from './routes/academic.routes.js';
 import lgRoutes from './routes/lg.routes.js';
 import financeAndVaultRoutes from './routes/financeAndVault.routes.js';
+import venueRoutes from './routes/venue.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,6 +79,7 @@ const routers = [
   academicRoutes,
   lgRoutes,
   financeAndVaultRoutes,
+  venueRoutes,
 ];
 
 routers.forEach((r) => {

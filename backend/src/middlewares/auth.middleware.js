@@ -194,6 +194,51 @@ export function requireFinanceAdmin(req, res, next) {
   return next();
 }
 
+/**
+ * Middleware requiring Principal authority (SUPER_ADMIN, subRoles includes 'PRINCIPAL', or sectionCode 'PRN')
+ */
+export function requirePrincipal(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+
+  const isPrincipal =
+    req.user.adminTier === 'SUPER_ADMIN' ||
+    (Array.isArray(req.user.subRoles) && req.user.subRoles.includes('PRINCIPAL')) ||
+    req.user.sectionCode === 'PRN' ||
+    req.user.sectionCode === 'PRINCIPAL';
+
+  if (!isPrincipal) {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Principal privileges required',
+    });
+  }
+  return next();
+}
+
+/**
+ * Middleware allowing STUDENT, FACULTY, or SUPER_ADMIN to initiate venue bookings
+ */
+export function requireBookingInitiator(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+
+  const isAllowed =
+    req.user.baseRole === 'STUDENT' ||
+    req.user.baseRole === 'FACULTY' ||
+    req.user.adminTier === 'SUPER_ADMIN';
+
+  if (!isAllowed) {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Only Students and Faculty can initiate venue bookings',
+    });
+  }
+  return next();
+}
+
 export default {
   verifyJWT,
   requireSuperAdmin,
@@ -201,5 +246,7 @@ export default {
   requireFaculty,
   requireAdmissionAdmin,
   requireFinanceAdmin,
+  requirePrincipal,
+  requireBookingInitiator,
 };
 

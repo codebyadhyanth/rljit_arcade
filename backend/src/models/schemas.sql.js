@@ -8,6 +8,8 @@
 export const EXTENSIONS_SQL = `
   CREATE EXTENSION IF NOT EXISTS pg_trgm;
   CREATE EXTENSION IF NOT EXISTS pgcrypto;
+  CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+  CREATE EXTENSION IF NOT EXISTS "btree_gist";
 `;
 
 export const ID_SEQUENCES_SCHEMA = `
@@ -244,6 +246,137 @@ export const DOMAIN_TABLES_SQL = `
     recorded_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
+
+  -- Module 6: Master Venue Directory & Multi-Stage Approval Engine
+  CREATE TABLE IF NOT EXISTS venues (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) UNIQUE NOT NULL,
+    type VARCHAR(50) NOT NULL CHECK (type IN ('AUDITORIUM', 'SEMINAR_HALL', 'CONFERENCE_ROOM', 'LAB', 'OPEN_AIR_THEATRE')),
+    department VARCHAR(32),
+    location_details TEXT,
+    capacity INTEGER NOT NULL CHECK (capacity > 0),
+    facilities JSONB DEFAULT '[]'::jsonb,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS venue_bookings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    booking_code VARCHAR(50) UNIQUE NOT NULL,
+    venue_id UUID NOT NULL REFERENCES venues(id) ON DELETE RESTRICT,
+    initiator_id UUID NOT NULL REFERENCES users(id),
+    initiator_role VARCHAR(20) NOT NULL CHECK (initiator_role IN ('STUDENT', 'FACULTY', 'ADMIN')),
+    coordinator_id UUID NOT NULL REFERENCES users(id),
+    department VARCHAR(32) NOT NULL,
+    event_title VARCHAR(255) NOT NULL,
+    purpose TEXT NOT NULL,
+    expected_headcount INTEGER NOT NULL CHECK (expected_headcount > 0),
+    event_start_time TIMESTAMPTZ NOT NULL,
+    event_end_time TIMESTAMPTZ NOT NULL,
+    buffered_time_range TSTZRANGE NOT NULL,
+    status VARCHAR(30) DEFAULT 'PENDING_HOD' NOT NULL CHECK (status IN (
+      'PENDING_HOD',
+      'PENDING_PRINCIPAL',
+      'PARTIALLY_ACCEPTED',
+      'APPROVED',
+      'REJECTED',
+      'CANCELLED'
+    )),
+    active_terms_and_conditions JSONB,
+    hod_approved_by UUID REFERENCES users(id),
+    hod_approved_at TIMESTAMPTZ,
+    principal_approved_by UUID REFERENCES users(id),
+    principal_approved_at TIMESTAMPTZ,
+    rejection_reason TEXT,
+    cancelled_by UUID REFERENCES users(id),
+    cancelled_at TIMESTAMPTZ,
+    cancellation_reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT prevent_venue_double_booking EXCLUDE USING gist (
+      venue_id WITH =,
+      buffered_time_range WITH &&
+    ) WHERE (status IN ('PENDING_HOD', 'PENDING_PRINCIPAL', 'PARTIALLY_ACCEPTED', 'APPROVED'))
+  );
+
+  CREATE TABLE IF NOT EXISTS booking_timeline_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    booking_id UUID NOT NULL REFERENCES venue_bookings(id) ON DELETE CASCADE,
+    actor_id UUID REFERENCES users(id),
+    actor_role VARCHAR(30),
+    action VARCHAR(50) NOT NULL CHECK (action IN (
+      'INITIATED',
+      'HOD_APPROVED',
+      'HOD_PARTIAL_TERMS',
+      'HOD_REJECTED',
+      'PRINCIPAL_APPROVED',
+      'PRINCIPAL_PARTIAL_TERMS',
+      'PRINCIPAL_REJECTED',
+      'COORDINATOR_AGREED_TERMS',
+      'COORDINATOR_COUNTER_PROPOSAL',
+      'VENUE_CHANGE_REQUESTED',
+      'TRANSFER_REQUESTED',
+      'TRANSFER_APPROVED',
+      'TRANSFER_REJECTED',
+      'CANCELLED'
+    )),
+    previous_status VARCHAR(30),
+    new_status VARCHAR(30),
+    message TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS venue_transfer_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    booking_id UUID NOT NULL REFERENCES venue_bookings(id) ON DELETE CASCADE,
+    requester_id UUID NOT NULL REFERENCES users(id),
+    new_coordinator_id UUID NOT NULL REFERENCES users(id),
+    new_event_title VARCHAR(255) NOT NULL,
+    new_purpose TEXT NOT NULL,
+    urgency_reason TEXT NOT NULL,
+    status VARCHAR(30) DEFAULT 'PENDING_COORDINATOR' NOT NULL CHECK (status IN (
+      'PENDING_COORDINATOR',
+      'APPROVED',
+      'REJECTED'
+    )),
+    response_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    responded_at TIMESTAMPTZ
+  );
+`;
+
+export const VENUE_MIGRATIONS_SQL = `
+  -- Ensure prevent_venue_double_booking constraint exists if table pre-existed
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'prevent_venue_double_booking'
+    ) THEN
+      ALTER TABLE venue_bookings
+      ADD CONSTRAINT prevent_venue_double_booking
+      EXCLUDE USING gist (
+        venue_id WITH =,
+        buffered_time_range WITH &&
+      ) WHERE (status IN ('PENDING_HOD', 'PENDING_PRINCIPAL', 'PARTIALLY_ACCEPTED', 'APPROVED'));
+    END IF;
+  END $$;
+
+  -- Performance & Cooldown Indexes
+  CREATE INDEX IF NOT EXISTS idx_venues_type ON venues (type);
+  CREATE INDEX IF NOT EXISTS idx_venues_department ON venues (department);
+  CREATE INDEX IF NOT EXISTS idx_venues_is_active ON venues (is_active);
+  CREATE INDEX IF NOT EXISTS idx_venue_bookings_venue_id ON venue_bookings (venue_id);
+  CREATE INDEX IF NOT EXISTS idx_venue_bookings_initiator ON venue_bookings (initiator_id);
+  CREATE INDEX IF NOT EXISTS idx_venue_bookings_coordinator ON venue_bookings (coordinator_id);
+  CREATE INDEX IF NOT EXISTS idx_venue_bookings_status ON venue_bookings (status);
+  CREATE INDEX IF NOT EXISTS idx_venue_bookings_dept ON venue_bookings (department);
+  CREATE INDEX IF NOT EXISTS idx_venue_bookings_cooldown ON venue_bookings (venue_id, status, cancelled_at);
+  CREATE INDEX IF NOT EXISTS idx_booking_timeline_booking ON booking_timeline_logs (booking_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_venue_transfers_booking ON venue_transfer_requests (booking_id);
+  CREATE INDEX IF NOT EXISTS idx_venue_transfers_requester ON venue_transfer_requests (requester_id);
 `;
 
 export const MIGRATIONS_SQL = `
@@ -289,6 +422,7 @@ export const ALL_SCHEMAS = [
   ROLE_SCHEMAS.faculty,
   ROLE_SCHEMAS.admin,
   DOMAIN_TABLES_SQL,
+  VENUE_MIGRATIONS_SQL,
   MIGRATIONS_SQL
 ];
 
@@ -299,6 +433,7 @@ export default {
   USERS_INDEXES_SQL,
   ROLE_SCHEMAS,
   DOMAIN_TABLES_SQL,
+  VENUE_MIGRATIONS_SQL,
   MIGRATIONS_SQL,
   VALID_ROLES,
   ALL_SCHEMAS

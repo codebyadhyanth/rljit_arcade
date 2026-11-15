@@ -19,14 +19,15 @@ flowchart TD
     Auth --> M3["Module 3: OCR Ingestion & EOD Lock State Machine"]
     Auth --> M4["Module 4: LG Mentorship & At-Risk Radar"]
     Auth --> M5["Module 5: Document Vault & Finance Clearance"]
+    Auth --> M6["Module 6: Venue Booking & Multi-Stage Approval Engine"]
 
-    M1 & M2 & M3 & M4 & M5 --> CryptoLayer["Crypto Layer (AES-256-GCM / HMAC-SHA256 Blind Index / Argon2id)"]
+    M1 & M2 & M3 & M4 & M5 & M6 --> CryptoLayer["Crypto Layer (AES-256-GCM / HMAC-SHA256 Blind Index / Argon2id)"]
     CryptoLayer --> PG[("PostgreSQL Database (rljit_arcade)")]
     
     subgraph StorageEngine["Relational Core"]
-        PG --> Ext["Extensions (pgcrypto, pg_trgm)"]
+        PG --> Ext["Extensions (pgcrypto, pg_trgm, uuid-ossp, btree_gist)"]
         PG --> CoreTables["Users, Admin, Faculty, Student, ID Sequences"]
-        PG --> DomainTables["Timetables, Swaps, OCR, Academic Records, Audits, Vault, Ledgers"]
+        PG --> DomainTables["Timetables, Swaps, OCR, Records, Vault, Ledgers, Venues, Bookings, Timeline, Transfers"]
     end
 ```
 
@@ -106,7 +107,11 @@ rljit_arcade
     ├── lg_leave_requests (id SERIAL PK, student_usn, lg_faculty_id UUID, from_date DATE, to_date DATE, reason, status, parent_notified BOOL...)
     ├── student_documents (id SERIAL PK, student_usn, doc_type, file_path, verification_status, custody_status, verified_by UUID...)
     ├── finance_ledgers (id SERIAL PK, student_usn, category, title, total_amount, paid_amount, due_date DATE, status, imposed_by UUID...)
-    └── finance_transactions (id SERIAL PK, ledger_id INT FK, student_usn, amount_paid, payment_mode, ref_no_encrypted, recorded_by UUID...)
+    ├── finance_transactions (id SERIAL PK, ledger_id INT FK, student_usn, amount_paid, payment_mode, ref_no_encrypted, recorded_by UUID...)
+    ├── venues (id UUID PK, name VARCHAR UNIQUE, type, department, location_details, capacity INT, facilities JSONB, is_active BOOL...)
+    ├── venue_bookings (id UUID PK, booking_code UNIQUE, venue_id UUID FK, initiator_id UUID FK, coordinator_id UUID FK, buffered_time_range TSTZRANGE, status, GIST exclusion constraint...)
+    ├── booking_timeline_logs (id UUID PK, booking_id UUID FK, actor_id UUID FK, action, previous_status, new_status, message, metadata JSONB...)
+    └── venue_transfer_requests (id UUID PK, booking_id UUID FK, requester_id UUID FK, new_coordinator_id UUID FK, urgency_reason, status...)
 ```
 
 ---
@@ -156,6 +161,38 @@ rljit_arcade
   Evaluates institutional eligibility for VTU Semester End Examination Hall Tickets:
   $$\text{Clearance} = (\text{Attendance} \ge 85\%) \land (\text{CIE Avg} \ge 40\%) \land (\text{Pending Dues} = 0) \land (\text{Unverified Docs} = 0)$$
 
+### Module 6: Master Venue Booking & Multi-Stage Approval Engine
+* **PostgreSQL GIST Concurrency & Double-Booking Prevention (No Redis):**
+  Guarantees zero overlapping bookings using native PostgreSQL `btree_gist` exclusion constraint `prevent_venue_double_booking` on `(venue_id WITH =, buffered_time_range WITH &&)` for active statuses `('PENDING_HOD', 'PENDING_PRINCIPAL', 'PARTIALLY_ACCEPTED', 'APPROVED')`.
+* **Automated Setup / Cleanup Buffer:**
+  Every booking automatically encloses a 30-minute buffer before start and after end: `[event_start_time - 30 mins, event_end_time + 30 mins)` stored in `buffered_time_range TSTZRANGE`.
+* **Multi-Stage Approval State Machine:**
+  ```mermaid
+  stateDiagram-v2
+      [*] --> PENDING_HOD: Initiated (Student + Faculty Coordinator or Faculty)
+      PENDING_HOD --> PENDING_PRINCIPAL: HOD Approves
+      PENDING_HOD --> PARTIALLY_ACCEPTED: HOD Conditional Terms Imposed
+      PENDING_HOD --> REJECTED: HOD Rejection
+      PARTIALLY_ACCEPTED --> PENDING_PRINCIPAL: Coordinator Agrees to Terms
+      PARTIALLY_ACCEPTED --> PENDING_HOD: Coordinator Counter-Requirement (if HOD stage)
+      PENDING_PRINCIPAL --> APPROVED: Principal Final Sign-Off (Venue Allotted)
+      PENDING_PRINCIPAL --> PARTIALLY_ACCEPTED: Principal Conditional Terms Imposed
+      PENDING_PRINCIPAL --> REJECTED: Principal Rejection
+      APPROVED --> PENDING_HOD: Change of Venue Requested by Coordinator
+      PENDING_HOD --> CANCELLED: Cancelled by Initiator/Coordinator
+      PENDING_PRINCIPAL --> CANCELLED: Cancelled by Initiator/Coordinator
+      APPROVED --> CANCELLED: Cancelled by Initiator/Coordinator
+      CANCELLED --> [*]: Slot Immediately Released + 24h Cooldown Activated
+  ```
+* **Mandatory Faculty Venue Coordinator:**
+  Student booking requests strictly mandate assigning an active Faculty member as Venue Coordinator (`coordinator_id`), while Faculty requests default to self.
+* **Native PostgreSQL 24-Hour Cancellation Cooling-Off Penalty (Zero Redis):**
+  Cancelling immediately transitions status to `'CANCELLED'`, allowing the GIST exclusion constraint to immediately release the physical slot for other users, while simultaneously enforcing a strict 24-hour block on the cancelling initiator or coordinator for that venue via native timestamp interval queries (`cancelled_at > NOW() - INTERVAL '24 hours'`).
+* **"Desperate User" Venue Handover / Transfer Workflow:**
+  When a venue is occupied, a desperate applicant can submit a transfer request directly to the current booking's Faculty Coordinator. Upon coordinator approval, the booking is atomically reassigned to the new applicant and new coordinator inside an ACID transaction (`BEGIN ... COMMIT`) while preserving complete audit logs.
+* **Comprehensive Audit Trail (`booking_timeline_logs`):**
+  Chronologically records every status transition, terms negotiation, actor role, message, and metadata snapshot.
+
 ---
 
 ## 6. API Reference & Postman Integration
@@ -200,6 +237,20 @@ The complete Postman testing manual is located in:
 | `POST` | `/api/v1/finance/ledger/pay` | Reconcile payment & record receipt | Finance Admin |
 | `GET` | `/api/v1/finance/ledger/:usn` | Itemized fee statement & payments | Bearer JWT |
 | `GET` | `/api/v1/student/clearance-status/:usn`| 4-Pillar automated No-Dues engine | Bearer JWT |
+| `POST` | `/api/v1/venues` | Create campus venue | Super Admin |
+| `GET` | `/api/v1/venues` | List venues with type/capacity filters | Authenticated |
+| `PATCH`| `/api/v1/venues/:venueId` | Update venue details or active status | Super Admin |
+| `GET` | `/api/v1/venues/availability` | Check slot availability (or occupied + coordinator contact) | Authenticated |
+| `POST` | `/api/v1/venues/bookings` | Initiate booking (mandatory coordinator + 24h cooldown) | Student / Faculty |
+| `GET` | `/api/v1/venues/bookings` | List bookings scoped by role | Authenticated |
+| `GET` | `/api/v1/venues/bookings/:id` | Full audit payload with timeline logs & approvers | Authenticated |
+| `PATCH`| `/api/v1/venues/bookings/:id/hod-review` | HOD review (APPROVE / REJECT / PARTIAL) | HOD |
+| `PATCH`| `/api/v1/venues/bookings/:id/principal-review` | Principal review (APPROVE / REJECT / PARTIAL) | Principal |
+| `PATCH`| `/api/v1/venues/bookings/:id/coordinator-response` | Coordinator agree or counter-proposal on terms | Faculty (Coordinator) |
+| `PATCH`| `/api/v1/venues/bookings/:id/change-venue` | Change venue & reset approval hierarchy to PENDING_HOD | Faculty (Coordinator) |
+| `POST` | `/api/v1/venues/bookings/:id/cancel` | Cancel booking & trigger 24h cooldown on venue | Initiator / Coordinator |
+| `POST` | `/api/v1/venues/bookings/:id/transfer-request` | Desperate user requests venue handover | Student / Faculty |
+| `PATCH`| `/api/v1/venues/transfer-requests/:transferId/respond`| Current Coordinator approves/rejects handover | Faculty (Coordinator) |
 
 ---
 
