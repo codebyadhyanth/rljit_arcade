@@ -6,6 +6,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import Colors from './src/theme/colors';
 
 import LoginScreen from './src/screens/LoginScreen';
+import MainAppScreen from './src/screens/MainAppScreen';
 import RbacVerificationShell from './src/screens/RbacVerificationShell';
 
 const Stack = createNativeStackNavigator();
@@ -25,6 +26,7 @@ export default function App() {
           }}
         >
           <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="MainApp" component={MainAppScreen} />
           <Stack.Screen name="RbacVerification" component={RbacVerificationShell} />
         </Stack.Navigator>
       </NavigationContainer>

@@ -58,7 +58,7 @@ export default function LoginScreen({ navigation }) {
     if (res.success) {
       if (res.auditReceipt) setAuditReceipt(res.auditReceipt);
       setTimeout(() => {
-        navigation.replace('RbacVerification');
+        navigation.replace('MainApp');
       }, 300);
     } else {
       setError(res.error);
@@ -68,7 +68,7 @@ export default function LoginScreen({ navigation }) {
   const handleBiometricAuth = async () => {
     const success = await authenticateWithBiometrics();
     if (success) {
-      navigation.replace('RbacVerification');
+      navigation.replace('MainApp');
     } else {
       setError('Biometric authentication cancelled or failed');
     }

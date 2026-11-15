@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
-import RbacVerificationShell from './pages/RbacVerificationShell';
+import PortalHome from './pages/PortalHome';
 import Unauthorized from './pages/Unauthorized';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -18,7 +18,7 @@ export default function App() {
         path="/portal/super-admin/mastermind-home"
         element={
           <ProtectedRoute allowedTiers={['SUPER_ADMIN']}>
-            <RbacVerificationShell />
+            <PortalHome />
           </ProtectedRoute>
         }
       />
@@ -28,7 +28,7 @@ export default function App() {
         path="/portal/hod-admin/:dept/home"
         element={
           <ProtectedRoute allowedTiers={['HOD_ADMIN', 'SUPER_ADMIN']}>
-            <RbacVerificationShell />
+            <PortalHome />
           </ProtectedRoute>
         }
       />
@@ -36,7 +36,7 @@ export default function App() {
         path="/portal/hod-admin/home"
         element={
           <ProtectedRoute allowedTiers={['HOD_ADMIN', 'SUPER_ADMIN']}>
-            <RbacVerificationShell />
+            <PortalHome />
           </ProtectedRoute>
         }
       />
@@ -46,7 +46,7 @@ export default function App() {
         path="/portal/admin/:sec/home"
         element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
-            <RbacVerificationShell />
+            <PortalHome />
           </ProtectedRoute>
         }
       />
@@ -54,7 +54,7 @@ export default function App() {
         path="/portal/admin/home"
         element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
-            <RbacVerificationShell />
+            <PortalHome />
           </ProtectedRoute>
         }
       />
@@ -64,7 +64,7 @@ export default function App() {
         path="/portal/faculty/home"
         element={
           <ProtectedRoute allowedRoles={['FACULTY']}>
-            <RbacVerificationShell />
+            <PortalHome />
           </ProtectedRoute>
         }
       />
@@ -74,7 +74,7 @@ export default function App() {
         path="/portal/student/home"
         element={
           <ProtectedRoute allowedRoles={['STUDENT']}>
-            <RbacVerificationShell />
+            <PortalHome />
           </ProtectedRoute>
         }
       />
@@ -82,7 +82,7 @@ export default function App() {
         path="/portal/student/dashboard"
         element={
           <ProtectedRoute allowedRoles={['STUDENT']}>
-            <RbacVerificationShell />
+            <PortalHome />
           </ProtectedRoute>
         }
       />
