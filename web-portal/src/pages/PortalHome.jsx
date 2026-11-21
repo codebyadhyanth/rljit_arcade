@@ -12,12 +12,9 @@ import {
   ShieldCheck,
   LogOut,
   GraduationCap,
-  Bell,
   ChevronDown,
-  ArrowRight,
   Menu,
   X,
-  Sparkles,
 } from 'lucide-react';
 
 export default function PortalHome() {
@@ -123,16 +120,6 @@ export default function PortalHome() {
 
         {/* Right: Notifications & User Avatar Profile Chip */}
         <div className="flex items-center gap-3 sm:gap-4">
-          {/* Notification Bell */}
-          <button
-            onClick={() => setActiveTab('profile')}
-            title="Institutional Alerts"
-            className="w-9 h-9 rounded-xl bg-white hover:bg-zinc-50 border border-[#EBEBEF] text-zinc-600 hover:text-zinc-900 flex items-center justify-center relative transition"
-          >
-            <Bell size={16} />
-            <span className="w-2 h-2 rounded-full bg-[#EA580C] absolute top-2 right-2 ring-2 ring-white" />
-          </button>
-
           {/* User Profile Chip with Dropdown */}
           <div className="relative">
             <button
@@ -201,7 +188,7 @@ export default function PortalHome() {
 
       {/* ─── MOBILE DRAWER MENU ─── */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-b border-[#EBEBEF] p-4 space-y-2 z-20">
+        <div className="md:hidden bg-[#141E2B] border-b border-white/10 p-4 space-y-2 z-20">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -213,7 +200,7 @@ export default function PortalHome() {
                   setMobileMenuOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
-                  isActive ? 'bg-[#121214] text-white' : 'text-zinc-700 hover:bg-zinc-50'
+                  isActive ? 'bg-[#303a48] text-white' : 'text-slate-300 hover:bg-white/10'
                 }`}
               >
                 <Icon size={16} className={isActive ? 'text-[#EA580C]' : 'text-zinc-400'} />
@@ -234,7 +221,7 @@ export default function PortalHome() {
       {/* ─── BODY CONTAINER (SIDEBAR + MAIN BENTO CONTENT) ─── */}
       <div className="flex-1 flex flex-col md:flex-row max-w-[1600px] w-full mx-auto">
         {/* DESKTOP SIDEBAR */}
-        <aside className="hidden md:flex flex-col w-60 p-5 shrink-0 justify-between">
+        <aside className="hidden md:flex flex-col w-60 p-5 shrink-0 justify-between bg-[#141E2B] text-white min-h-[calc(100vh-4rem)]">
           <div className="space-y-4">
             {/* Sidebar Navigation */}
             <nav className="space-y-1.5">
@@ -252,12 +239,12 @@ export default function PortalHome() {
                     }}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-semibold transition-all ${
                       isActive
-                        ? 'bg-[#121214] text-white shadow-sm'
-                        : 'text-zinc-600 hover:text-zinc-900 hover:bg-white/80'
+                        ? 'bg-[#303a48] text-white shadow-sm'
+                        : 'text-slate-300 hover:text-white hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon size={17} className={isActive ? 'text-white' : 'text-zinc-400'} />
+                      <Icon size={17} className={isActive ? 'text-orange-300' : 'text-slate-400'} />
                       <span>{item.label}</span>
                     </div>
                   </button>
@@ -266,35 +253,7 @@ export default function PortalHome() {
             </nav>
           </div>
 
-          {/* Bottom Sidebar Promo Card (Replicating CampusHub "One pass. More perks.") */}
-          <div className="bg-gradient-to-b from-[#1C1C22] to-[#121214] text-white p-4 rounded-3xl border border-zinc-800 shadow-sm space-y-3 relative overflow-hidden group">
-            {/* Subtle glow accent */}
-            <div className="absolute -top-10 -right-10 w-24 h-24 bg-orange-600/20 rounded-full blur-xl pointer-events-none" />
-
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
-              <Sparkles size={11} />
-              <span>CampusHub Pass</span>
-            </div>
-
-            <div>
-              <h3 className="text-xs font-extrabold text-white leading-snug">
-                One pass.{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-200">
-                  More perks.
-                </span>
-              </h3>
-              <p className="text-[10px] text-zinc-400 leading-normal mt-1">
-                Verified dual-table credentials & instant institutional services access.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setActiveTab('services')}
-              className="w-8 h-8 rounded-full bg-white text-zinc-900 flex items-center justify-center hover:bg-zinc-100 transition shadow-sm group-hover:translate-x-0.5"
-            >
-              <ArrowRight size={14} />
-            </button>
-          </div>
+          <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white"><LogOut size={16}/><span>Sign Out</span></button>
         </aside>
 
         {/* MAIN BENTO CANVAS */}

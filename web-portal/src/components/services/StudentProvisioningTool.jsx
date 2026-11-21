@@ -11,7 +11,7 @@ export default function StudentProvisioningTool({ onBack }) {
   const isHod =
     user?.adminTier === 'HOD_ADMIN' ||
     (Array.isArray(user?.subRoles) && user?.subRoles.includes('HOD'));
-  const lockedDepartment = isHod ? (user?.department || 'CS') : 'CS';
+  const lockedDepartment = isHod ? (user?.department || '') : '';
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -230,7 +230,7 @@ export default function StudentProvisioningTool({ onBack }) {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !(isHod ? lockedDepartment : department)}
           className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#121214] hover:bg-black text-white text-xs font-semibold rounded-xl transition shadow-sm disabled:opacity-50"
         >
           {loading ? 'Provisioning USN & Generating Credentials...' : 'Enroll & Generate VTU USN'}

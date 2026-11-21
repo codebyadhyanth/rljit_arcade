@@ -19,14 +19,14 @@ export default function StudentProvisioningTool({ onBack }) {
   const isHod =
     user?.adminTier === 'HOD_ADMIN' ||
     (Array.isArray(user?.subRoles) && user?.subRoles.includes('HOD'));
-  const lockedDepartment = isHod ? (user?.department || 'CS') : 'CS';
+  const lockedDepartment = isHod ? (user?.department || '') : '';
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [department, setDepartment] = useState(lockedDepartment);
   const [entryType, setEntryType] = useState('REGULAR');
-  const [admissionYear, setAdmissionYear] = useState('2026');
+  const [admissionYear, setAdmissionYear] = useState(String(new Date().getFullYear()));
   const [semester, setSemester] = useState('1');
   const [isCr, setIsCr] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -217,6 +217,8 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   backBtn: {
+    minHeight: 48,
+    justifyContent: 'center',
     marginBottom: 10,
   },
   backBtnText: {
@@ -284,6 +286,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.hairlineBorder,
     borderRadius: 10,
+    minHeight: 48,
     paddingVertical: 8,
     alignItems: 'center',
   },
@@ -305,7 +308,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.hairlineBorder,
     borderRadius: 12,
     paddingHorizontal: 12,
-    height: 46,
+    minHeight: 52,
     justifyContent: 'center',
   },
   input: {
@@ -313,6 +316,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   crToggle: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,

@@ -4,9 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import Colors from '../theme/colors';
 import DashboardScreen from './DashboardScreen';
@@ -18,7 +18,6 @@ import {
   Layers,
   Search,
   ShieldCheck,
-  Bell,
   GraduationCap,
 } from 'lucide-react-native';
 
@@ -70,11 +69,10 @@ export default function MainAppScreen({ navigation }) {
         <View style={styles.topBarActions}>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => setActiveTab('profile')}
+            onPress={() => setActiveTab('directory')}
             activeOpacity={0.7}
           >
-            <Bell size={18} color={Colors.textBody} />
-            <View style={styles.unreadDot} />
+            <Search size={18} color={Colors.textBody} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -141,7 +139,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.hairlineBorder,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'between',
+    justifyContent: 'space-between',
   },
   topBarBrand: {
     flexDirection: 'row',
@@ -174,9 +172,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: '#F4F4F6',
     borderWidth: 1,
     borderColor: Colors.hairlineBorder,
@@ -184,19 +182,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  unreadDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: Colors.brandOrange,
-    position: 'absolute',
-    top: 7,
-    right: 7,
-  },
+
   avatarBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.surfaceDark,
     alignItems: 'center',
     justifyContent: 'center',
@@ -221,6 +211,7 @@ const styles = StyleSheet.create({
   tabButton: {
     flex: 1,
     flexDirection: 'row',
+    minHeight: 52,
     paddingVertical: 9,
     paddingHorizontal: 4,
     borderRadius: 14,

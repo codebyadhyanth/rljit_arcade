@@ -28,7 +28,7 @@ export default function ProvisionAuthorityTool({ onBack }) {
         phone: phone.trim(),
         department: authorityType !== 'REGULAR_ADMIN' ? department : undefined,
         sectionCode: authorityType === 'REGULAR_ADMIN' ? sectionCode : undefined,
-        subRoles: authorityType === 'HOD_ADMIN' ? ['HOD'] : [],
+        subRoles: authorityType === 'HOD' ? ['HOD'] : [],
       };
 
       const res = await api.post('/api/v1/super-admin/provision-authority', payload);
@@ -104,7 +104,7 @@ export default function ProvisionAuthorityTool({ onBack }) {
               className="w-full px-3 py-2.5 bg-[#FBFBFC] border border-[#EBEBEF] rounded-xl text-xs text-zinc-900 outline-none focus:border-[#EA580C]"
             >
               <option value="REGULAR_ADMIN">Regular Admin (Section)</option>
-              <option value="HOD_ADMIN">Department HOD (Head of Dept)</option>
+              <option value="HOD">Department HOD (Head of Dept)</option>
               <option value="FACULTY">Faculty Member</option>
             </select>
           </div>

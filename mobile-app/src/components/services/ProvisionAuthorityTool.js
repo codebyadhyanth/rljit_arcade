@@ -17,7 +17,7 @@ export default function ProvisionAuthorityTool({ onBack }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [department, setDepartment] = useState('CS');
+  const [department, setDepartment] = useState('');
   const [sectionCode, setSectionCode] = useState('ADM');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -199,6 +199,8 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   backBtn: {
+    minHeight: 48,
+    justifyContent: 'center',
     marginBottom: 10,
   },
   backBtnText: {
@@ -266,6 +268,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.hairlineBorder,
     borderRadius: 10,
+    minHeight: 48,
     paddingVertical: 8,
     alignItems: 'center',
   },
@@ -287,7 +290,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.hairlineBorder,
     borderRadius: 12,
     paddingHorizontal: 12,
-    height: 46,
+    minHeight: 52,
     justifyContent: 'center',
   },
   input: {

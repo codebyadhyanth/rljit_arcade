@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import Colors from '../theme/colors';
+import api from '../config/api';
 import DbReceiptCard from '../components/DbReceiptCard';
 import MaskedField from '../components/MaskedField';
 
 export default function RbacVerificationShell({ navigation }) {
   const { user, auditReceipt, redirectUrl, logout } = useAuth();
+  const [liveProfile, setLiveProfile] = useState(null);
+  const [profileError, setProfileError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    api.get('/api/v1/profile/me').then((response) => { if (mounted) setLiveProfile(response.data?.profile || null); }).catch((error) => { if (mounted) setProfileError(error?.response?.data?.error || 'Live profile details are unavailable.'); });
+    return () => { mounted = false; };
+  }, []);
 
   const handleSignOut = async () => {
     await logout();
@@ -37,7 +46,8 @@ export default function RbacVerificationShell({ navigation }) {
     );
   }
 
-  const subRolesList = Array.isArray(user.subRoles) ? user.subRoles : [];
+  const identity = liveProfile || user;
+  const subRolesList = Array.isArray(identity.subRoles) ? identity.subRoles : [];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -81,17 +91,17 @@ export default function RbacVerificationShell({ navigation }) {
           <View style={styles.metaRow}>
             <View style={styles.metaBox}>
               <Text style={styles.metaLabel}>Institutional ID</Text>
-              <Text style={styles.metaValueMono}>{user.username}</Text>
+              <Text style={styles.metaValueMono}>{identity.username}</Text>
             </View>
             <View style={styles.metaBox}>
               <Text style={styles.metaLabel}>Role Tier</Text>
               <View style={styles.badgeRow}>
                 <View style={styles.roleBadge}>
-                  <Text style={styles.roleBadgeText}>{user.baseRole}</Text>
+                  <Text style={styles.roleBadgeText}>{identity.baseRole}</Text>
                 </View>
-                {user.adminTier ? (
+                {identity.adminTier ? (
                   <View style={styles.tierBadge}>
-                    <Text style={styles.tierBadgeText}>{user.adminTier}</Text>
+                    <Text style={styles.tierBadgeText}>{identity.adminTier}</Text>
                   </View>
                 ) : null}
               </View>
@@ -102,29 +112,31 @@ export default function RbacVerificationShell({ navigation }) {
           <View style={styles.scopeBox}>
             <Text style={styles.metaLabel}>Assigned Scope</Text>
             <Text style={styles.scopeValue}>
-              {user.department
-                ? `Department: ${user.department}`
-                : user.sectionCode
-                ? `Section: ${user.sectionCode}`
+              {identity.department
+                ? `Department: ${identity.department}`
+                : identity.sectionCode
+                ? `Section: ${identity.sectionCode}`
                 : 'Global Institutional Scope'}
             </Text>
           </View>
+
+          {profileError ? <Text style={styles.emptyText}>{profileError}</Text> : null}
 
           {/* PII Masked Fields */}
           <View style={styles.piiSection}>
             <MaskedField
               label="Full Name (AES-256 Decrypted)"
-              value={user.fullName}
+              value={identity.fullName}
               mono={false}
             />
             <MaskedField
               label="Institutional Email"
-              value={user.email}
+              value={identity.email}
               mono={false}
             />
             <MaskedField
               label="Contact Phone"
-              value={user.phone}
+              value={identity.phone}
               mono={true}
             />
           </View>
@@ -157,12 +169,10 @@ export default function RbacVerificationShell({ navigation }) {
           {/* Under-Development Scope Notice */}
           <View style={styles.scopeNotice}>
             <Text style={styles.scopeNoticeTitle}>
-              Phase 1 Verification Complete
+              Live Profile Snapshot
             </Text>
             <Text style={styles.scopeNoticeText}>
-              Your role scope has been verified against the live PostgreSQL database.
-              Dashboard modules will unlock in Phase 2 as respective backend
-              controllers are connected.
+              Identity, role scope, and available profile details are read from the authenticated profile endpoint.
             </Text>
           </View>
         </View>
@@ -242,6 +252,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   signOutBtn: {
+    minHeight: 48,
+    justifyContent: 'center',
     backgroundColor: Colors.surfaceDark,
     paddingHorizontal: 14,
     paddingVertical: 8,
