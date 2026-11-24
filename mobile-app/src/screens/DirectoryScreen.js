@@ -12,7 +12,6 @@ import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import Colors from '../theme/colors';
 import MaskedField from '../components/MaskedField';
-import UnderDevelopmentView from '../components/UnderDevelopmentView';
 
 export default function DirectoryScreen() {
   const { user } = useAuth();

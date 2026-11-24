@@ -273,6 +273,39 @@ export async function generateMasterCsvFiles() {
   ].join('\n');
   fs.writeFileSync(path.join(SEED_DATA_DIR, 'finance.csv'), financeCsv, 'utf-8');
 
+  // 8. Timetable CSV
+  const timetableCsv = [
+    'department,semester,section,day_of_week,period_no,start_time,end_time,subject_code,subject_name,room_no',
+    'CSE,3,A,1,1,09:00,10:00,22CS31,"Data Structures & Algorithms",LH-101',
+    'CSE,3,A,1,2,10:00,11:00,22CS32,"Computer Organization",LH-101',
+    'AIML,3,A,1,1,09:00,10:00,22AI31,"Foundations of AI",LH-201',
+    'DS,3,A,2,1,09:00,10:00,22DS31,"Statistical Modeling",LH-202',
+    'CYBER,3,A,2,2,10:00,11:00,22CY31,"Network Security Basics",LH-203',
+    'ECE,3,A,3,1,09:00,10:00,22EC31,"Digital Signal Processing",LH-301',
+    'ME,3,A,3,2,10:00,11:00,22ME31,"Thermodynamics",LH-302',
+    'ALLIED_SCIENCE,1,A,1,1,09:00,10:00,22MA11,"Engineering Mathematics I",LH-001',
+  ].join('\n');
+  fs.writeFileSync(path.join(SEED_DATA_DIR, 'timetable.csv'), timetableCsv, 'utf-8');
+
+  // 9. Attendance sample CSV
+  const attendanceCsv = [
+    'department,semester,section,subject_code,period_no,status,entry_mode',
+    'CSE,3,A,22CS31,1,PRESENT,MANUAL',
+    'AIML,3,A,22AI31,1,PRESENT,MANUAL',
+    'DS,3,A,22DS31,1,LATE,MANUAL',
+    'ALLIED_SCIENCE,1,A,22MA11,1,PRESENT,MANUAL',
+  ].join('\n');
+  fs.writeFileSync(path.join(SEED_DATA_DIR, 'attendance.csv'), attendanceCsv, 'utf-8');
+
+  // 10. CIE Marks sample CSV
+  const cieCsv = [
+    'department,semester,subject_code,subject_name,cie1_marks,cie2_marks,cie3_marks,assignment_marks,total_cie,max_marks',
+    'CSE,3,22CS31,"Data Structures & Algorithms",18,19,17,9,45,50',
+    'AIML,3,22AI31,"Foundations of AI",17,18,18,9,44,50',
+    'ALLIED_SCIENCE,1,22MA11,"Engineering Mathematics I",19,18,19,10,47,50',
+  ].join('\n');
+  fs.writeFileSync(path.join(SEED_DATA_DIR, 'cie_marks.csv'), cieCsv, 'utf-8');
+
   return {
     hodsCount: hods.length,
     portalAdminsCount: portalAdmins.length,
@@ -353,6 +386,9 @@ export async function executeBulkProvisioning(jobId, port = 5000) {
         ADMIN_PORTALS: { hods: [], faculty: [], students: [] },
       };
 
+      const facultyIdByDept = {};
+      const studentListForSeed = [];
+
       // 3. Provision Portal Admins (Concurrency 5)
       job.currentStage = 'PROVISIONING_PORTAL_ADMINS';
       const adminLines = fs.readFileSync(path.join(SEED_DATA_DIR, 'portal_admins.csv'), 'utf-8').trim().split('\n').slice(1);
@@ -370,7 +406,16 @@ export async function executeBulkProvisioning(jobId, port = 5000) {
       });
 
       const adminResults = await runConcurrent(adminItems, 5, async (item) => {
-        return httpLoopback(port, 'POST', '/api/v1/super-admin/provision-authority', item, superAdminHeaders);
+        const res = await httpLoopback(port, 'POST', '/api/v1/super-admin/provision-authority', item, superAdminHeaders);
+        credentialsByDept.ADMIN_PORTALS.hods.push({
+          username: res.username || res.user?.username || 'N/A',
+          temporaryPassword: res.temporaryPassword || 'EXISTING_USER',
+          fullName: item.fullName,
+          email: item.email,
+          role: item.sectionCode,
+          department: 'ADMIN_PORTALS',
+        });
+        return res;
       });
       job.counts.portalAdmins = adminResults.filter((r) => r.success).length;
       job.progress = 15;
@@ -395,8 +440,8 @@ export async function executeBulkProvisioning(jobId, port = 5000) {
         const res = await httpLoopback(port, 'POST', '/api/v1/super-admin/provision-authority', item, superAdminHeaders);
         const deptKey = credentialsByDept[item.department] ? item.department : 'ALLIED_SCIENCE';
         credentialsByDept[deptKey].hods.push({
-          username: res.user?.username || 'N/A',
-          temporaryPassword: res.credentials?.temporaryPassword || 'p$4K9!vQ2#xM',
+          username: res.username || res.user?.username || 'N/A',
+          temporaryPassword: res.temporaryPassword || 'EXISTING_USER',
           fullName: item.fullName,
           email: item.email,
           role: 'HOD',
@@ -427,9 +472,13 @@ export async function executeBulkProvisioning(jobId, port = 5000) {
       const facResults = await runConcurrent(facItems, 10, async (item) => {
         const res = await httpLoopback(port, 'POST', '/api/v1/super-admin/provision-authority', item, superAdminHeaders);
         const deptKey = credentialsByDept[item.department] ? item.department : 'ALLIED_SCIENCE';
+        const facId = res.dbReceipt?.userId || res.user?.id;
+        if (facId && !facultyIdByDept[item.department]) {
+          facultyIdByDept[item.department] = facId;
+        }
         credentialsByDept[deptKey].faculty.push({
-          username: res.user?.username || 'N/A',
-          temporaryPassword: res.credentials?.temporaryPassword || 'p$4K9!vQ2#xM',
+          username: res.username || res.user?.username || 'N/A',
+          temporaryPassword: res.temporaryPassword || 'EXISTING_USER',
           fullName: item.fullName,
           email: item.email,
           classification: item.classification,
@@ -463,9 +512,18 @@ export async function executeBulkProvisioning(jobId, port = 5000) {
       const stuResults = await runConcurrent(stuItems, 10, async (item) => {
         const res = await httpLoopback(port, 'POST', '/api/v1/portals/provision-student', item, superAdminHeaders);
         const deptKey = credentialsByDept[item.coreBranch] ? item.coreBranch : (credentialsByDept[item.department] ? item.department : 'ALLIED_SCIENCE');
+        const stuId = res.dbReceipt?.userId || res.studentProfile?.id || res.user?.id;
+        if (stuId && studentListForSeed.length < 40) {
+          studentListForSeed.push({
+            id: stuId,
+            department: item.department,
+            coreBranch: item.coreBranch,
+            semester: item.semester,
+          });
+        }
         credentialsByDept[deptKey].students.push({
-          username: res.user?.username || 'N/A',
-          temporaryPassword: res.credentials?.temporaryPassword || 'p$4K9!vQ2#xM',
+          username: res.credentials?.username || res.username || res.user?.username || 'N/A',
+          temporaryPassword: res.credentials?.temporaryPassword || 'EXISTING_USER',
           fullName: item.fullName,
           email: item.email,
           year: item.academicYear,
@@ -482,19 +540,87 @@ export async function executeBulkProvisioning(jobId, port = 5000) {
       job.counts.students = stuResults.filter((r) => r.success).length;
       job.progress = 85;
 
-      // 7. Seed Venues & Academic Records
+      // 7. Seed Venues, Bookings, Timetable, Attendance, CIE, Placements & Finance
       job.currentStage = 'SEEDING_CAMPUS_DOMAINS';
-      const venueRes = await pool.query(`
+      await pool.query(`
         INSERT INTO venues (name, type, department, capacity, location_details, is_active)
         VALUES
           ('Sir M. Visvesvaraya Auditorium', 'AUDITORIUM', 'CENTRAL', 600, 'Main Block, 2nd Floor', TRUE),
           ('Aryabhata Seminar Hall', 'SEMINAR_HALL', 'CSE', 200, 'CSE Block, Ground Floor', TRUE),
           ('Turing Computing Lab', 'LAB', 'AIML', 120, 'Tech Park, 3rd Floor', TRUE),
-          ('Kalam Conference Hall', 'CONFERENCE_ROOM', 'CENTRAL', 80, 'Admin Block, 1st Floor', TRUE)
-        ON CONFLICT DO NOTHING
-        RETURNING id;
+          ('Kalam Conference Hall', 'CONFERENCE_ROOM', 'CENTRAL', 80, 'Admin Block, 1st Floor', TRUE),
+          ('Open Air Amphitheatre', 'OPEN_AIR_THEATRE', 'CENTRAL', 1200, 'Campus Quadrangle', TRUE)
+        ON CONFLICT (name) DO NOTHING;
       `);
-      job.counts.venues = venueRes.rowCount;
+      const allVenuesRes = await pool.query('SELECT id, name, department FROM venues LIMIT 5');
+      job.counts.venues = allVenuesRes.rowCount;
+
+      const superUserRes = await pool.query("SELECT id FROM users WHERE admin_tier = 'SUPER_ADMIN' LIMIT 1");
+      const actorId = superUserRes.rows[0]?.id || Object.values(facultyIdByDept)[0];
+
+      // Seed Venue Bookings
+      if (allVenuesRes.rowCount > 0 && actorId) {
+        const vId = allVenuesRes.rows[0].id;
+        await pool.query(
+          `INSERT INTO venue_bookings (booking_code, venue_id, initiator_id, initiator_role, coordinator_id, department, event_title, purpose, expected_headcount, event_start_time, event_end_time, buffered_time_range, status)
+           VALUES ($1, $2, $3, 'FACULTY', $3, 'CSE', 'Annual Tech Symposium 2026', 'Departmental technical symposium', 250, '2026-12-10T09:00:00Z', '2026-12-10T16:00:00Z', '[2026-12-10T08:30:00Z, 2026-12-10T16:30:00Z)'::tstzrange, 'APPROVED')
+           ON CONFLICT (booking_code) DO NOTHING`,
+          ['VB-SEED-001', vId, actorId]
+        );
+      }
+
+      // Seed Timetable Slots from timetable.csv
+      const ttLines = fs.readFileSync(path.join(SEED_DATA_DIR, 'timetable.csv'), 'utf-8').trim().split('\n').slice(1);
+      for (const line of ttLines) {
+        const p = line.split(',');
+        const dept = p[0];
+        const facId = facultyIdByDept[dept] || actorId;
+        await pool.query(
+          `INSERT INTO timetable_slots (department, semester, section, day_of_week, period_no, start_time, end_time, subject_code, subject_name, faculty_id, room_no)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           ON CONFLICT (department, semester, section, day_of_week, period_no) DO NOTHING`,
+          [dept, parseInt(p[1], 10), p[2], parseInt(p[3], 10), parseInt(p[4], 10), p[5], p[6], p[7], p[8].replace(/"/g, ''), facId, p[9]]
+        );
+      }
+
+      // Seed Sample Attendance, CIE Marks & Finance Records for provisioned students
+      for (const stu of studentListForSeed.slice(0, 20)) {
+        const facId = facultyIdByDept[stu.department] || facultyIdByDept[stu.coreBranch] || actorId;
+        const subCode = stu.semester === 1 ? '22MA11' : `22${stu.coreBranch.slice(0, 2)}31`;
+        const subName = stu.semester === 1 ? 'Engineering Mathematics I' : `${stu.coreBranch} Core Subject`;
+
+        await pool.query(
+          `INSERT INTO attendance_records (student_id, faculty_id, department, semester, section, subject_code, period_no, status, entry_mode)
+           VALUES ($1, $2, $3, $4, 'A', $5, 1, 'PRESENT', 'MANUAL')`,
+          [stu.id, facId, stu.department, stu.semester, subCode]
+        );
+
+        await pool.query(
+          `INSERT INTO cie_marks (student_id, faculty_id, department, semester, subject_code, subject_name, cie1_marks, cie2_marks, cie3_marks, assignment_marks, total_cie, max_marks)
+           VALUES ($1, $2, $3, $4, $5, $6, 18, 17, 19, 9, 45, 50)
+           ON CONFLICT (student_id, subject_code, semester) DO NOTHING`,
+          [stu.id, facId, stu.department, stu.semester, subCode, subName]
+        );
+
+        await pool.query(
+          `INSERT INTO finance_records (student_id, fee_type, amount_due, amount_paid, fine_amount, status, due_date, updated_by)
+           VALUES ($1, 'TUITION', 95000.00, 45000.00, 0.00, 'PARTIAL', '2026-12-31', $2)`,
+          [stu.id, actorId]
+        );
+      }
+
+      // Seed Placement Drives from placements.csv
+      const plcLines = fs.readFileSync(path.join(SEED_DATA_DIR, 'placements.csv'), 'utf-8').trim().split('\n').slice(1);
+      for (const line of plcLines) {
+        const match = line.match(/"([^"]+)","([^"]+)",([^,]+),([^,]+),"([^"]+)",([^,]+),([^,]+)/);
+        if (match) {
+          await pool.query(
+            `INSERT INTO placement_drives (company_name, role_title, package_lpa, min_cgpa, eligible_branches, drive_date, status, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [match[1], match[2], parseFloat(match[3]), parseFloat(match[4]), match[5].split(','), match[6], match[7].trim(), actorId]
+          );
+        }
+      }
 
       // 8. Export Credentials by Department to Root /credentials/
       job.currentStage = 'EXPORTING_CREDENTIALS';
