@@ -1758,6 +1758,152 @@ export async function respondTransferRequest(req, res) {
   }
 }
 
+/**
+ * 15. PATCH /api/v1/venues/bookings/:id/review
+ * Unified Multi-Tier Approval Workflow:
+ * HOD -> Management -> Principal, returning PostgreSQL dbReceipt
+ */
+export async function reviewBooking(req, res) {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { action, remarks, reason } = req.body;
+    const reviewRemarks = remarks || reason || '';
+
+    const reviewAction = (action || '').toUpperCase();
+    if (!['APPROVE', 'REJECT'].includes(reviewAction)) {
+      return res.status(400).json({
+        success: false,
+        error: "action must be either 'APPROVE' or 'REJECT'",
+      });
+    }
+
+    const bookingRes = await client.query('SELECT * FROM venue_bookings WHERE id = $1', [id]);
+    if (bookingRes.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Booking not found' });
+    }
+    const booking = bookingRes.rows[0];
+
+    const userId = req.user.userId || req.user.id;
+    const userRole = req.user.baseRole || req.user.base_role;
+    const adminTier = req.user.adminTier || req.user.admin_tier;
+    const sectionCode = req.user.sectionCode || req.user.section_code;
+    const subRoles = req.user.subRoles || req.user.sub_roles || [];
+
+    const isSuperAdmin = adminTier === 'SUPER_ADMIN';
+    const isHod = adminTier === 'HOD_ADMIN' || (Array.isArray(subRoles) && subRoles.includes('HOD'));
+    const isManagement = isSuperAdmin || sectionCode === 'MGT' || (Array.isArray(subRoles) && subRoles.includes('MGT'));
+    const isPrincipal = isSuperAdmin || sectionCode === 'PRN' || (Array.isArray(subRoles) && subRoles.includes('PRINCIPAL'));
+
+    if (!isSuperAdmin && !isHod && !isManagement && !isPrincipal) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Insufficient privileges to review venue bookings',
+      });
+    }
+
+    await client.query('BEGIN');
+
+    let newStatus = booking.status;
+    let updateFields = ['updated_at = NOW()'];
+    let updateValues = [];
+
+    if (reviewAction === 'REJECT') {
+      newStatus = 'REJECTED';
+      updateValues.push(newStatus, reviewRemarks, id);
+      updateFields.push(`status = $${updateValues.length - 2}`);
+      updateFields.push(`rejection_reason = $${updateValues.length - 1}`);
+      updateFields.push(`remarks = $${updateValues.length - 1}`);
+    } else {
+      // APPROVE flow
+      if (isSuperAdmin) {
+        newStatus = 'APPROVED';
+        updateValues.push(newStatus, userId, userId, userId, reviewRemarks, id);
+        updateFields.push(`status = $${updateValues.length - 5}`);
+        updateFields.push(`approved_by_hod = $${updateValues.length - 4}`);
+        updateFields.push(`approved_by_mgt = $${updateValues.length - 3}`);
+        updateFields.push(`approved_by_principal = $${updateValues.length - 2}`);
+        updateFields.push(`remarks = $${updateValues.length - 1}`);
+        updateFields.push(`principal_approved_at = NOW()`);
+      } else if (isPrincipal) {
+        newStatus = 'APPROVED';
+        updateValues.push(newStatus, userId, reviewRemarks, id);
+        updateFields.push(`status = $${updateValues.length - 3}`);
+        updateFields.push(`approved_by_principal = $${updateValues.length - 2}`);
+        updateFields.push(`remarks = $${updateValues.length - 1}`);
+        updateFields.push(`principal_approved_at = NOW()`);
+      } else if (isManagement) {
+        newStatus = 'PENDING_PRINCIPAL';
+        updateValues.push(newStatus, userId, reviewRemarks, id);
+        updateFields.push(`status = $${updateValues.length - 3}`);
+        updateFields.push(`approved_by_mgt = $${updateValues.length - 2}`);
+        updateFields.push(`remarks = $${updateValues.length - 1}`);
+      } else if (isHod) {
+        newStatus = 'PENDING_MANAGEMENT';
+        updateValues.push(newStatus, userId, reviewRemarks, id);
+        updateFields.push(`status = $${updateValues.length - 3}`);
+        updateFields.push(`approved_by_hod = $${updateValues.length - 2}`);
+        updateFields.push(`remarks = $${updateValues.length - 1}`);
+        updateFields.push(`hod_approved_at = NOW()`);
+      }
+    }
+
+    const updateQuery = `
+      UPDATE venue_bookings
+      SET ${updateFields.join(', ')}
+      WHERE id = $${updateValues.length}
+      RETURNING *;
+    `;
+    const updatedRes = await client.query(updateQuery, updateValues);
+    const updatedBooking = updatedRes.rows[0];
+
+    const dbReceipt = {
+      receiptId: `RCPT-VB-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      transactionId: `tx_vb_${id.substring(0, 8)}_${Date.now()}`,
+      table: 'venue_bookings',
+      recordId: id,
+      previousStatus: booking.status,
+      newStatus,
+      action: reviewAction,
+      reviewedBy: userId,
+      reviewerRole: isSuperAdmin ? 'SUPER_ADMIN' : (isPrincipal ? 'PRINCIPAL' : (isManagement ? 'MANAGEMENT' : 'HOD')),
+      remarks: reviewRemarks,
+      timestamp: new Date().toISOString(),
+    };
+
+    await client.query(
+      `INSERT INTO booking_timeline_logs (booking_id, actor_id, actor_role, action, previous_status, new_status, message, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
+      [
+        id,
+        userId,
+        dbReceipt.reviewerRole,
+        `REVIEW_${reviewAction}`,
+        booking.status,
+        newStatus,
+        `Booking ${reviewAction}ED by ${dbReceipt.reviewerRole}: ${reviewRemarks}`,
+        JSON.stringify({ dbReceipt, remarks: reviewRemarks }),
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    return res.status(200).json({
+      success: true,
+      message: `Booking review (${reviewAction}) processed successfully`,
+      status: newStatus,
+      dbReceipt,
+      booking: updatedBooking,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('reviewBooking error:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Failed to review venue booking' });
+  } finally {
+    client.release();
+  }
+}
+
 export default {
   createVenue,
   listVenues,
@@ -1773,4 +1919,5 @@ export default {
   cancelBooking,
   requestTransfer,
   respondTransferRequest,
+  reviewBooking,
 };

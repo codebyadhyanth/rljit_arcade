@@ -20,6 +20,8 @@ import academicRoutes from './routes/academic.routes.js';
 import lgRoutes from './routes/lg.routes.js';
 import financeAndVaultRoutes from './routes/financeAndVault.routes.js';
 import venueRoutes from './routes/venue.routes.js';
+import portalsRoutes from './routes/portals.routes.js';
+import internalRoutes from './routes/internal.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,6 +82,8 @@ const routers = [
   lgRoutes,
   financeAndVaultRoutes,
   venueRoutes,
+  portalsRoutes,
+  internalRoutes,
 ];
 
 routers.forEach((r) => {

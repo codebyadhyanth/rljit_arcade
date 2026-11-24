@@ -131,6 +131,200 @@ export default function ServicesScreen({ initialTool = null }) {
 
   if (activeTool === 'timetable') return <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><Button title="Back to services" secondary onPress={() => setActiveTool(null)} /><Section title="Daily timetable"><Field label="Department" value={form.department || profile?.studentDetails?.department || profile?.department || ''} onChangeText={(v) => set('department', v)} /><Field label="Semester" value={form.semester || profile?.studentDetails?.semester?.toString() || ''} onChangeText={(v) => set('semester', v)} keyboardType="number-pad" /><Field label="Section" value={form.section || profile?.studentDetails?.section || ''} onChangeText={(v) => set('section', v)} /><Button title="Load timetable" onPress={async () => { const r = await request('get', '/api/v1/timetable/daily-view', null, { dept: form.department || profile?.studentDetails?.department || profile?.department, sem: form.semester || profile?.studentDetails?.semester, sec: form.section || profile?.studentDetails?.section }); setRecords(Array.isArray(r?.schedule) ? r.schedule : []); }} />{records.length ? records.map((slot, i) => <Text key={slot.timetable_id || i} style={styles.body}>{[slot.period_no && 'Period ' + slot.period_no, slot.subject_code, slot.section, slot.room_no, slot.faculty_username].filter(Boolean).join(' · ')}</Text>) : <Text style={styles.empty}>No timetable slots loaded.</Text>}</Section>{isFaculty ? <Section title="Request a class swap"><Field label="Timetable slot ID" value={form.timetable_id || ''} onChangeText={(v) => set('timetable_id', v)} /><Field label="Target faculty ID" value={form.target_faculty_id || ''} onChangeText={(v) => set('target_faculty_id', v)} /><Field label="Swap date (YYYY-MM-DD)" value={form.swap_date || ''} onChangeText={(v) => set('swap_date', v)} /><Field label="Replacement subject (optional)" value={form.new_subject_code || ''} onChangeText={(v) => set('new_subject_code', v)} /><Button title="Create swap request" onPress={() => run('post', '/api/v1/timetable/swap-request', { timetable_id: Number(form.timetable_id), target_faculty_id: form.target_faculty_id, swap_date: form.swap_date, new_subject_code: form.new_subject_code || undefined })} disabled={busy || !form.timetable_id || !form.target_faculty_id || !form.swap_date} /></Section> : null}<Feedback error={error} result={result} busy={busy} /></ScrollView></KeyboardAvoidingView>;
 
+
+  if (activeTool === 'attendance') {
+    const isStudentUser = isStudent;
+    return (
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Button title="Back to services" secondary onPress={() => setActiveTool(null)} />
+          {isStudentUser ? (
+            <Section title="Student Attendance Records">
+              <Button title="Load My Attendance" onPress={async () => {
+                const usn = profile?.studentDetails?.usn || user?.username;
+                const res = await request('get', '/api/v1/attendance/student/' + encodeURIComponent(usn));
+                if (res) setRecords(res.records || []);
+              }} />
+              {records.length ? records.map((r, i) => (
+                <View key={r.id || i} style={styles.row}>
+                  <Text style={styles.rowTitle}>{r.subject_code} · Period {r.period_no}</Text>
+                  <Text style={styles.body}>{r.attendance_date ? new Date(r.attendance_date).toLocaleDateString() : '—'} · Status: {r.status}</Text>
+                </View>
+              )) : <Text style={styles.empty}>Click Load My Attendance to fetch records.</Text>}
+            </Section>
+          ) : (
+            <Section title="Manual Attendance Console">
+              <Text style={styles.body}>Enter section and USNs. Status toggle chips apply to entered students.</Text>
+              <Field label="Department" value={form.attDept || profile?.department || 'CSE'} onChangeText={(v) => set('attDept', v)} />
+              <Field label="Semester" value={form.attSem || '3'} onChangeText={(v) => set('attSem', v)} keyboardType="number-pad" />
+              <Field label="Section" value={form.attSec || 'A'} onChangeText={(v) => set('attSec', v)} />
+              <Field label="Subject Code" value={form.attSub || 'BCS301'} onChangeText={(v) => set('attSub', v)} />
+              <Field label="Period Number" value={form.attPeriod || '1'} onChangeText={(v) => set('attPeriod', v)} keyboardType="number-pad" />
+              <Field label="Date (YYYY-MM-DD)" value={form.attDate || new Date().toISOString().slice(0, 10)} onChangeText={(v) => set('attDate', v)} />
+              
+              <Text style={styles.label}>Status Toggle</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginVertical: 6 }}>
+                {['PRESENT', 'ABSENT', 'LATE'].map((st) => (
+                  <TouchableOpacity
+                    key={st}
+                    onPress={() => set('attStatus', st)}
+                    style={[
+                      styles.chip,
+                      (form.attStatus || 'PRESENT') === st ? styles.chipActive : styles.chipInactive,
+                    ]}
+                  >
+                    <Text style={[(form.attStatus || 'PRESENT') === st ? styles.chipTextActive : styles.chipTextInactive]}>{st}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Field label="Student USNs (comma separated)" value={form.attUsns || ''} onChangeText={(v) => set('attUsns', v)} multiline placeholder="1RL26CS001, 1RL26CS002..." />
+              
+              <Button
+                title="Capture Sheet with Camera (Phase 3 - Coming Soon)"
+                secondary
+                onPress={() => Alert.alert('Camera Capture', 'Phase 3 - Coming Soon. Please use manual entry.')}
+              />
+              
+              <Button
+                title="Commit Manual Attendance"
+                disabled={busy || !form.attUsns}
+                onPress={async () => {
+                  const usns = (form.attUsns || '').split(',').map((u) => u.trim()).filter(Boolean);
+                  const recordsPayload = usns.map((u) => ({ student_id: u, status: form.attStatus || 'PRESENT' }));
+                  await run('post', '/api/v1/attendance/manual', {
+                    department: form.attDept || profile?.department || 'CSE',
+                    semester: Number(form.attSem || 3),
+                    section: form.attSec || 'A',
+                    subject_code: form.attSub || 'BCS301',
+                    period_no: Number(form.attPeriod || 1),
+                    attendance_date: form.attDate || new Date().toISOString().slice(0, 10),
+                    records: recordsPayload,
+                  });
+                }}
+              />
+            </Section>
+          )}
+          <Feedback error={error} result={result} busy={busy} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  if (activeTool === 'cie') {
+    const isStudentUser = isStudent;
+    return (
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Button title="Back to services" secondary onPress={() => setActiveTool(null)} />
+          {isStudentUser ? (
+            <Section title="My CIE Scorecards">
+              <Button title="Load My CIE Marks" onPress={async () => {
+                const usn = profile?.studentDetails?.usn || user?.username;
+                const res = await request('get', '/api/v1/cie/student/' + encodeURIComponent(usn));
+                if (res) setRecords(res.marks || []);
+              }} />
+              {records.length ? records.map((c, i) => (
+                <View key={c.id || i} style={styles.row}>
+                  <Text style={styles.rowTitle}>{c.subject_code} · {c.subject_name || 'Subject'}</Text>
+                  <Text style={styles.body}>CIE: {c.cie1_marks} / {c.cie2_marks} / {c.cie3_marks} · Assign: {c.assignment_marks} · Total: {c.total_cie}/{c.max_marks}</Text>
+                </View>
+              )) : <Text style={styles.empty}>Click Load My CIE Marks to fetch scorecards.</Text>}
+            </Section>
+          ) : (
+            <Section title="Continuous Internal Evaluation (CIE) Entry">
+              <Field label="Student USN" value={form.cieUsn || ''} onChangeText={(v) => set('cieUsn', v)} placeholder="e.g. 1RL26CS001" />
+              <Field label="Department" value={form.cieDept || profile?.department || 'CSE'} onChangeText={(v) => set('cieDept', v)} />
+              <Field label="Semester" value={form.cieSem || '3'} onChangeText={(v) => set('cieSem', v)} keyboardType="number-pad" />
+              <Field label="Subject Code" value={form.cieSub || 'BCS301'} onChangeText={(v) => set('cieSub', v)} />
+              <Field label="Subject Name" value={form.cieSubName || 'Data Structures'} onChangeText={(v) => set('cieSubName', v)} />
+              <Field label="CIE 1 Marks" value={form.cie1 || '0'} onChangeText={(v) => set('cie1', v)} keyboardType="decimal-pad" />
+              <Field label="CIE 2 Marks" value={form.cie2 || '0'} onChangeText={(v) => set('cie2', v)} keyboardType="decimal-pad" />
+              <Field label="CIE 3 Marks" value={form.cie3 || '0'} onChangeText={(v) => set('cie3', v)} keyboardType="decimal-pad" />
+              <Field label="Assignment Marks" value={form.cieAssign || '0'} onChangeText={(v) => set('cieAssign', v)} keyboardType="decimal-pad" />
+              <Field label="Max Marks" value={form.cieMax || '50'} onChangeText={(v) => set('cieMax', v)} keyboardType="number-pad" />
+              <Button
+                title="Upsert CIE Marks"
+                disabled={busy || !form.cieUsn}
+                onPress={() => run('post', '/api/v1/cie/manual', {
+                  student_id: form.cieUsn.trim(),
+                  department: form.cieDept || profile?.department || 'CSE',
+                  semester: Number(form.cieSem || 3),
+                  subject_code: form.cieSub || 'BCS301',
+                  subject_name: form.cieSubName || 'Data Structures',
+                  cie1_marks: Number(form.cie1 || 0),
+                  cie2_marks: Number(form.cie2 || 0),
+                  cie3_marks: Number(form.cie3 || 0),
+                  assignment_marks: Number(form.cieAssign || 0),
+                  max_marks: Number(form.cieMax || 50),
+                })}
+              />
+            </Section>
+          )}
+          <Feedback error={error} result={result} busy={busy} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  if (activeTool === 'placements') {
+    const isPlcAdmin = isSuper || (user?.baseRole === 'ADMIN' && user?.sectionCode === 'PLC');
+    return (
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Button title="Back to services" secondary onPress={() => setActiveTool(null)} />
+          <Section title="Placement Recruitment Drives">
+            <Button title="Refresh Placement Drives" onPress={async () => {
+              const res = await request('get', '/api/v1/placements/drives');
+              if (res) setRecords(res.drives || []);
+            }} />
+            {records.length ? records.map((d, i) => (
+              <View key={d.id || i} style={styles.row}>
+                <Text style={styles.rowTitle}>{d.company_name} · {d.role_title}</Text>
+                <Text style={styles.body}>Package: ₹{d.package_lpa} LPA · Min CGPA: {d.min_cgpa} · Date: {d.drive_date ? new Date(d.drive_date).toLocaleDateString() : '—'}</Text>
+                {isStudent ? (
+                  <Button
+                    title="Apply for Drive"
+                    secondary
+                    onPress={() => run('post', `/api/v1/placements/drives/${d.id}/apply`, {})}
+                  />
+                ) : null}
+              </View>
+            )) : <Text style={styles.empty}>Click Refresh to load active drives.</Text>}
+          </Section>
+          {isPlcAdmin ? (
+            <Section title="Create Placement Drive">
+              <Field label="Company Name" value={form.plcCompany || ''} onChangeText={(v) => set('plcCompany', v)} />
+              <Field label="Role Title" value={form.plcRole || ''} onChangeText={(v) => set('plcRole', v)} />
+              <Field label="Package (LPA)" value={form.plcLpa || ''} onChangeText={(v) => set('plcLpa', v)} keyboardType="decimal-pad" />
+              <Field label="Minimum CGPA" value={form.plcCgpa || '6.5'} onChangeText={(v) => set('plcCgpa', v)} keyboardType="decimal-pad" />
+              <Field label="Drive Date (YYYY-MM-DD)" value={form.plcDate || ''} onChangeText={(v) => set('plcDate', v)} />
+              <Button
+                title="Publish Drive"
+                disabled={busy || !form.plcCompany || !form.plcRole || !form.plcLpa || !form.plcDate}
+                onPress={async () => {
+                  const r = await request('post', '/api/v1/placements/drives', {
+                    company_name: form.plcCompany,
+                    role_title: form.plcRole,
+                    package_lpa: Number(form.plcLpa),
+                    min_cgpa: Number(form.plcCgpa || 6.5),
+                    drive_date: form.plcDate,
+                    status: 'UPCOMING',
+                  });
+                  if (r) {
+                    const d = await request('get', '/api/v1/placements/drives');
+                    if (d) setRecords(d.drives || []);
+                  }
+                }}
+              />
+            </Section>
+          ) : null}
+          <Feedback error={error} result={result} busy={busy} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
   return <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
     <View style={styles.hero}><Text style={styles.overline}>{profile?.adminTier || profile?.baseRole || user?.baseRole || 'ACCOUNT'}</Text><Text style={styles.heroTitle}>Campus services</Text><Text style={styles.heroSub}>Available actions are limited to the permissions on this account.</Text></View>
     {(canProvision || isSuper) ? <Section title="Provisioning and administration">{isSuper ? <Button title="Provision authority" onPress={() => setActiveTool('provision-authority')} /> : null}{canProvision ? <Button title={isHod ? 'Provision department student' : 'Provision student'} onPress={() => setActiveTool('provision-student')} /> : null}{(isHod || isSuper) ? <Button title="LG mapping and sub-roles" secondary onPress={() => setActiveTool('lg-admin')} /> : null}{isSuper ? <><Button title="Database transaction ledger" secondary onPress={() => setActiveTool('db-ledger')} /><Button title="Database diagnostics" secondary onPress={() => setActiveTool('db-diagnostics')} /><Button title="Manage venues" secondary onPress={() => setActiveTool('venue-admin')} /></> : null}{isAdmission ? <Button title="Document verification" secondary onPress={() => setActiveTool('documents')} /> : null}</Section> : null}
@@ -140,6 +334,13 @@ export default function ServicesScreen({ initialTool = null }) {
     {isFaculty || isHod ? <Section title="Mentorship and at-risk review"><Button title="Mentees and radar" onPress={() => setActiveTool('lg-mentees')} /><Button title="Review mentee leaves" secondary onPress={() => setActiveTool('leave-review')} /></Section> : null}
     {isFinance ? <Section title="Finance ledger"><Button title="View student ledger" onPress={() => setActiveTool('finance')} /><Button title="Post a ledger charge" secondary onPress={() => setActiveTool('finance-charge')} /><Button title="Record a payment" secondary onPress={() => setActiveTool('finance-payment')} /></Section> : null}
     {isAdmission ? <Section title="Student document vault"><Button title="Verify a document" onPress={() => setActiveTool('documents')} /><Button title="View student vault" secondary onPress={() => setActiveTool('vault')} /></Section> : null}
+    
+    <Section title="Academic & Placements Console">
+      <Button title="Attendance Console" onPress={() => setActiveTool('attendance')} />
+      <Button title="CIE Assessment Marks" secondary onPress={() => setActiveTool('cie')} />
+      <Button title="Placement Recruitment Drives" secondary onPress={() => setActiveTool('placements')} />
+    </Section>
+
     {isFaculty ? <Section title="Academic record management"><Text style={styles.body}>Commit attendance or CIE records with the authorized database roster, then manage EOD lock requests.</Text><Button title="Open academic records" onPress={() => setActiveTool('academic')} /></Section> : null}
     <Feedback error={error} result={result} busy={busy} />
   </ScrollView></KeyboardAvoidingView>;
@@ -150,5 +351,11 @@ const styles = StyleSheet.create({
  content: { padding: 16, paddingBottom: 36, gap: 14, backgroundColor: Colors.canvasBg },
  hero: { backgroundColor: Colors.surfaceDark, borderRadius: 20, padding: 18, gap: 7 }, overline: { color: '#FDBA74', fontSize: 10, fontWeight: '800', letterSpacing: 1 }, heroTitle: { color: Colors.textInverse, fontSize: 21, fontWeight: '800' }, heroSub: { color: '#E4E4E7', fontSize: 12, lineHeight: 18 },
  card: { backgroundColor: Colors.surfaceCard, borderRadius: 20, borderWidth: 1, borderColor: Colors.hairlineBorder, padding: 16, gap: 10 }, cardTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' }, label: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', marginBottom: 5 }, field: { marginBottom: 4 }, input: { minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: Colors.hairlineBorder, backgroundColor: '#FFFFFF', paddingHorizontal: 14, color: Colors.textPrimary, fontSize: 14 }, multiline: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top' },
- button: { minHeight: 48, backgroundColor: Colors.surfaceDark, borderRadius: 14, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', marginTop: 3 }, buttonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' }, secondaryButton: { backgroundColor: Colors.brandOrangeLight }, secondaryText: { color: Colors.brandOrange }, disabled: { opacity: 0.45 }, readOnly: { backgroundColor: Colors.canvasBg, color: Colors.textMuted }, availability: { borderWidth: 1, borderColor: Colors.hairlineBorder, borderRadius: 14, backgroundColor: Colors.canvasBg, padding: 12, gap: 8 }, row: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: Colors.divider, paddingTop: 10, gap: 6 }, rowTitle: { color: Colors.textBody, fontSize: 13, fontWeight: '800' }, body: { color: Colors.textMuted, fontSize: 12, lineHeight: 18 }, empty: { color: Colors.textMuted, fontSize: 12 }, buttonWrap: { gap: 7 }, error: { backgroundColor: Colors.statusRoseBg, borderColor: '#FECACA', borderWidth: 1, padding: 12, borderRadius: 12 }, errorText: { color: Colors.statusRose, fontSize: 12, lineHeight: 18 }, success: { backgroundColor: Colors.statusEmeraldBg, padding: 12, borderRadius: 12 }, successText: { color: Colors.statusEmerald, fontSize: 12, fontWeight: '600' },
+ button: { minHeight: 48, backgroundColor: Colors.surfaceDark, borderRadius: 14, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', marginTop: 3 }, buttonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' }, secondaryButton: { backgroundColor: Colors.brandOrangeLight }, secondaryText: { color: Colors.brandOrange }, disabled: { opacity: 0.45 }, readOnly: { backgroundColor: Colors.canvasBg, color: Colors.textMuted }, availability: { borderWidth: 1, borderColor: Colors.hairlineBorder, borderRadius: 14, backgroundColor: Colors.canvasBg, padding: 12, gap: 8 }, row: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: Colors.divider, paddingTop: 10, gap: 6 }, rowTitle: { color: Colors.textBody, fontSize: 13, fontWeight: '800' }, body: { color: Colors.textMuted, fontSize: 12, lineHeight: 18 }, empty: { color: Colors.textMuted, fontSize: 12 },
+ chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.hairlineBorder },
+ chipActive: { backgroundColor: Colors.surfaceDark, borderColor: Colors.surfaceDark },
+ chipInactive: { backgroundColor: '#FFFFFF' },
+ chipTextActive: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+ chipTextInactive: { color: Colors.textMuted, fontSize: 12, fontWeight: '600' },
+ buttonWrap: { gap: 7 }, error: { backgroundColor: Colors.statusRoseBg, borderColor: '#FECACA', borderWidth: 1, padding: 12, borderRadius: 12 }, errorText: { color: Colors.statusRose, fontSize: 12, lineHeight: 18 }, success: { backgroundColor: Colors.statusEmeraldBg, padding: 12, borderRadius: 12 }, successText: { color: Colors.statusEmerald, fontSize: 12, fontWeight: '600' },
 });

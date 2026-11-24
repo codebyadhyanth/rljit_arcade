@@ -196,7 +196,7 @@ export async function provisionAuthority(req, res) {
 
     // 1. REGULAR_ADMIN
     if (authType === 'REGULAR_ADMIN') {
-      const validSections = ['ADM', 'ACC', 'PLC', 'SPT'];
+      const validSections = ['ADM', 'ACC', 'PLC', 'SPT', 'MGT', 'PRN', 'EXM'];
       if (!sec || !validSections.includes(sec)) {
         return res.status(400).json({
           success: false,
@@ -211,6 +211,18 @@ export async function provisionAuthority(req, res) {
 
       if (sec === 'ADM') {
         permissions = ['student:create:all', 'student:read:all', 'portal:admission:access'];
+      } else if (sec === 'ACC') {
+        permissions = ['finance:ledger:charge', 'finance:ledger:pay', 'portal:acc:access'];
+      } else if (sec === 'PLC') {
+        permissions = ['placement:manage', 'portal:plc:access'];
+      } else if (sec === 'MGT') {
+        permissions = ['management:approve', 'portal:mgt:access'];
+      } else if (sec === 'PRN') {
+        permissions = ['principal:approve', 'portal:prn:access', 'portal:principal:access'];
+      } else if (sec === 'EXM') {
+        permissions = ['exam:manage', 'portal:exm:access'];
+      } else if (sec === 'SPT') {
+        permissions = ['sports:manage', 'portal:spt:access'];
       } else {
         permissions = [`portal:${sec.toLowerCase()}:access`];
       }
@@ -237,6 +249,14 @@ export async function provisionAuthority(req, res) {
       );
 
       if (hodCheck.rowCount > 0) {
+        if (req.headers['x-idempotent'] === 'true' || req.body.idempotent === true || req.query.idempotent === 'true') {
+          return res.status(200).json({
+            success: true,
+            idempotent: true,
+            message: `Active HOD already exists for department ${dept}`,
+            user: { username: hodCheck.rows[0].username, department: dept, role: 'HOD' },
+          });
+        }
         return res.status(409).json({
           success: false,
           error: `An active HOD already exists for department ${dept} (${hodCheck.rows[0].username})`,
@@ -282,11 +302,19 @@ export async function provisionAuthority(req, res) {
     const phoneBidx = createBlindIndex(phone);
 
     const conflictCheck = await pool.query(
-      'SELECT username FROM users WHERE email_bidx = $1 OR phone_bidx = $2',
+      'SELECT username, base_role, admin_tier, department FROM users WHERE email_bidx = $1 OR phone_bidx = $2',
       [emailBidx, phoneBidx]
     );
 
     if (conflictCheck.rowCount > 0) {
+      if (req.headers['x-idempotent'] === 'true' || req.body.idempotent === true || req.query.idempotent === 'true') {
+        return res.status(200).json({
+          success: true,
+          idempotent: true,
+          message: 'Authority user already registered in system (idempotent)',
+          user: conflictCheck.rows[0],
+        });
+      }
       return res.status(409).json({
         success: false,
         error: 'Email or phone number is already registered in the system',
@@ -345,26 +373,30 @@ export async function provisionAuthority(req, res) {
 
     const userRow = userResult.rows[0];
 
+    const classification = req.body.classification || (adminTier === 'HOD_ADMIN' ? 'Professor' : 'Assistant Professor');
+
     // Dual-table sync into corresponding role table linked via user_id
     if (baseRole === 'FACULTY') {
       await client.query(
-        `INSERT INTO faculty (user_id, emp_id, full_name, email, department, designation, is_hod)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO faculty (user_id, emp_id, full_name, email, department, designation, is_hod, classification)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (emp_id) DO UPDATE SET
            user_id = EXCLUDED.user_id,
            full_name = EXCLUDED.full_name,
            email = EXCLUDED.email,
            department = EXCLUDED.department,
            designation = EXCLUDED.designation,
-           is_hod = EXCLUDED.is_hod;`,
+           is_hod = EXCLUDED.is_hod,
+           classification = EXCLUDED.classification;`,
         [
           userRow.id,
           username,
           fullName,
           email,
           dept,
-          adminTier === 'HOD_ADMIN' ? 'HOD' : 'Assistant Professor',
+          adminTier === 'HOD_ADMIN' ? 'HOD' : classification,
           adminTier === 'HOD_ADMIN',
+          classification,
         ]
       );
     } else if (baseRole === 'ADMIN') {
@@ -492,17 +524,27 @@ export async function provisionStudent(req, res) {
     const entry = String(entryType).trim().toUpperCase() === 'LATERAL' ? 'LATERAL' : 'REGULAR';
     const year = admissionYear ? parseInt(admissionYear, 10) : new Date().getFullYear();
     const sem = semester ? parseInt(semester, 10) : (entry === 'LATERAL' ? 3 : 1);
+    const coreBranch = req.body.coreBranch || req.body.core_branch || (targetDept !== 'ALLIED_SCIENCE' ? targetDept : null);
+    const academicYear = req.body.academicYear ? parseInt(req.body.academicYear, 10) : (req.body.academic_year ? parseInt(req.body.academic_year, 10) : Math.ceil(sem / 2));
 
     // Check email and phone uniqueness via blind index
     const emailBidx = createBlindIndex(email);
     const phoneBidx = createBlindIndex(phone);
 
     const conflictCheck = await pool.query(
-      'SELECT username FROM users WHERE email_bidx = $1 OR phone_bidx = $2',
+      'SELECT username, department, semester FROM users WHERE email_bidx = $1 OR phone_bidx = $2',
       [emailBidx, phoneBidx]
     );
 
     if (conflictCheck.rowCount > 0) {
+      if (req.headers['x-idempotent'] === 'true' || req.body.idempotent === true || req.query.idempotent === 'true') {
+        return res.status(200).json({
+          success: true,
+          idempotent: true,
+          message: 'Student already registered in system (idempotent)',
+          user: conflictCheck.rows[0],
+        });
+      }
       return res.status(409).json({
         success: false,
         error: 'Email or phone number is already registered for a student or user',
@@ -527,6 +569,7 @@ export async function provisionStudent(req, res) {
       {
         role: 'STUDENT',
         department: targetDept,
+        coreBranch,
         admissionYear: year,
         entryType: entry,
       },
@@ -539,10 +582,10 @@ export async function provisionStudent(req, res) {
       INSERT INTO users (
         username, password_hash, full_name_encrypted, email_encrypted, phone_encrypted,
         email_bidx, phone_bidx, base_role, admin_tier, sub_roles, permissions,
-        department, admission_year, semester, entry_type, created_by,
+        department, core_branch, academic_year, admission_year, semester, entry_type, created_by,
         must_change_password, is_active
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'STUDENT', NULL, $8, $9, $10, $11, $12, $13, $14, TRUE, TRUE)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'STUDENT', NULL, $8, $9, $10, $11, $12, $13, $14, $15, $16, TRUE, TRUE)
       RETURNING id, username, xmin::text AS xmin, ctid::text AS ctid, created_at;
     `;
 
@@ -557,6 +600,8 @@ export async function provisionStudent(req, res) {
       studentSubRoles,
       ['portal:student:access'],
       targetDept,
+      coreBranch,
+      academicYear,
       year,
       sem,
       entry,
@@ -567,16 +612,18 @@ export async function provisionStudent(req, res) {
 
     // Dual-table sync into student table linked via user_id
     await client.query(
-      `INSERT INTO student (user_id, usn, full_name, email, department, semester, entry_type, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE')
+      `INSERT INTO student (user_id, usn, full_name, email, department, core_branch, academic_year, semester, entry_type, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'ACTIVE')
        ON CONFLICT (usn) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          full_name = EXCLUDED.full_name,
          email = EXCLUDED.email,
          department = EXCLUDED.department,
+         core_branch = EXCLUDED.core_branch,
+         academic_year = EXCLUDED.academic_year,
          semester = EXCLUDED.semester,
          entry_type = EXCLUDED.entry_type;`,
-      [userRow.id, usn, fullName, email, targetDept, sem, entry]
+      [userRow.id, usn, fullName, email, targetDept, coreBranch, academicYear, sem, entry]
     );
 
     await client.query('COMMIT');

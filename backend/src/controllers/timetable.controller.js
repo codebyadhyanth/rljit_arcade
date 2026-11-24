@@ -268,10 +268,268 @@ export async function approveSwap(req, res) {
   }
 }
 
+/**
+ * GET /api/v1/timetable
+ * Filtered by department, semester, section, or facultyId
+ */
+export async function getTimetableSlots(req, res) {
+  try {
+    await ensureDatabaseExists();
+    const { department, semester, section, facultyId, faculty_id, day_of_week } = req.query;
+
+    const conditions = [];
+    const values = [];
+
+    if (department) {
+      values.push(department.toUpperCase());
+      conditions.push(`ts.department = $${values.length}`);
+    }
+    if (semester) {
+      const sem = parseInt(semester, 10);
+      if (!isNaN(sem)) {
+        values.push(sem);
+        conditions.push(`ts.semester = $${values.length}`);
+      }
+    }
+    if (section) {
+      values.push(section.toUpperCase());
+      conditions.push(`ts.section = $${values.length}`);
+    }
+    const targetFacultyId = facultyId || faculty_id;
+    if (targetFacultyId) {
+      values.push(targetFacultyId);
+      conditions.push(`(ts.faculty_id = $${values.length} OR ts.swapped_faculty_id = $${values.length})`);
+    }
+    if (day_of_week) {
+      const day = parseInt(day_of_week, 10);
+      if (!isNaN(day)) {
+        values.push(day);
+        conditions.push(`ts.day_of_week = $${values.length}`);
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT ts.id, ts.department, ts.semester, ts.section, ts.day_of_week, ts.period_no,
+             ts.start_time, ts.end_time, ts.subject_code, ts.subject_name,
+             ts.faculty_id, u_fac.username AS faculty_username,
+             ts.room_no, ts.swapped_faculty_id, u_swp.username AS swapped_faculty_username,
+             ts.swap_status, ts.created_at
+      FROM timetable_slots ts
+      LEFT JOIN users u_fac ON ts.faculty_id = u_fac.id
+      LEFT JOIN users u_swp ON ts.swapped_faculty_id = u_swp.id
+      ${whereClause}
+      ORDER BY ts.day_of_week ASC, ts.period_no ASC;
+    `;
+
+    const result = await pool.query(query, values);
+    return res.status(200).json({
+      success: true,
+      count: result.rowCount,
+      slots: result.rows,
+    });
+  } catch (error) {
+    console.error('getTimetableSlots error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to fetch timetable slots' });
+  }
+}
+
+/**
+ * POST /api/v1/timetable
+ * Manual slot creation / bulk upsert by HOD or Super Admin
+ */
+export async function createTimetableSlots(req, res) {
+  const client = await pool.connect();
+  try {
+    await ensureDatabaseExists();
+
+    const isSuperAdmin = req.user.adminTier === 'SUPER_ADMIN';
+    const callerDept = req.user.department;
+
+    let slotList = [];
+    if (Array.isArray(req.body)) {
+      slotList = req.body;
+    } else if (Array.isArray(req.body.slots)) {
+      slotList = req.body.slots;
+    } else if (req.body.department && req.body.semester) {
+      slotList = [req.body];
+    }
+
+    if (slotList.length === 0) {
+      return res.status(400).json({ success: false, error: 'No timetable slot data provided' });
+    }
+
+    await client.query('BEGIN');
+    const upserted = [];
+
+    for (const slot of slotList) {
+      const dept = (slot.department || req.body.department || callerDept || 'CSE').toUpperCase();
+      const sem = parseInt(slot.semester || req.body.semester, 10);
+      const sec = (slot.section || req.body.section || 'A').toUpperCase();
+      const day = parseInt(slot.day_of_week, 10);
+      const period = parseInt(slot.period_no, 10);
+      const subCode = String(slot.subject_code || '').trim().toUpperCase();
+      const subName = slot.subject_name || slot.subjectName || null;
+      const startTime = slot.start_time || slot.startTime || null;
+      const endTime = slot.end_time || slot.endTime || null;
+      const facultyId = slot.faculty_id || slot.facultyId || null;
+      const roomNo = slot.room_no || slot.roomNo || null;
+
+      if (!dept || isNaN(sem) || !sec || isNaN(day) || isNaN(period) || !subCode) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          error: 'department, semester, section, day_of_week, period_no, and subject_code are required for each slot',
+        });
+      }
+
+      // Check department scope
+      if (!isSuperAdmin && callerDept && callerDept.toUpperCase() !== dept) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          success: false,
+          error: `Forbidden: Cannot create timetable slot for department '${dept}' outside your scope`,
+        });
+      }
+
+      const upsertQuery = `
+        INSERT INTO timetable_slots (
+          department, semester, section, day_of_week, period_no,
+          start_time, end_time, subject_code, subject_name,
+          faculty_id, room_no, swap_status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'NONE')
+        ON CONFLICT (department, semester, section, day_of_week, period_no)
+        DO UPDATE SET
+          subject_code = EXCLUDED.subject_code,
+          subject_name = EXCLUDED.subject_name,
+          start_time = EXCLUDED.start_time,
+          end_time = EXCLUDED.end_time,
+          faculty_id = EXCLUDED.faculty_id,
+          room_no = EXCLUDED.room_no
+        RETURNING *;
+      `;
+
+      const r = await client.query(upsertQuery, [
+        dept,
+        sem,
+        sec,
+        day,
+        period,
+        startTime,
+        endTime,
+        subCode,
+        subName,
+        facultyId,
+        roomNo,
+      ]);
+      upserted.push(r.rows[0]);
+    }
+
+    await client.query('COMMIT');
+
+    const dbReceipt = {
+      receiptId: `RCPT-TT-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      transactionId: `tx_tt_${Date.now()}`,
+      table: 'timetable_slots',
+      count: upserted.length,
+      createdBy: req.user.userId || req.user.id,
+      timestamp: new Date().toISOString(),
+    };
+
+    return res.status(201).json({
+      success: true,
+      message: `${upserted.length} timetable slot(s) successfully recorded`,
+      dbReceipt,
+      count: upserted.length,
+      slots: upserted,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('createTimetableSlots error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to create timetable slots' });
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * PATCH /api/v1/timetable/:id/swap
+ * Faculty class exchange request or acceptance updating slot live
+ */
+export async function swapTimetableSlot(req, res) {
+  try {
+    await ensureDatabaseExists();
+    const { id } = req.params;
+    const { swapped_faculty_id, swappedFacultyId, swap_status, swapStatus, action } = req.body;
+
+    const slotRes = await pool.query('SELECT * FROM timetable_slots WHERE id = $1', [id]);
+    if (slotRes.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Timetable slot not found' });
+    }
+    const slot = slotRes.rows[0];
+
+    const targetSwappedFaculty = swapped_faculty_id || swappedFacultyId || null;
+    let newSwapStatus = (action || swap_status || swapStatus || 'PENDING').toUpperCase();
+
+    if (!['PENDING', 'APPROVED', 'REJECTED', 'NONE'].includes(newSwapStatus)) {
+      return res.status(400).json({
+        success: false,
+        error: "swap_status must be one of 'PENDING', 'APPROVED', 'REJECTED', or 'NONE'",
+      });
+    }
+
+    const updates = [];
+    const values = [];
+
+    if (targetSwappedFaculty) {
+      values.push(targetSwappedFaculty);
+      updates.push(`swapped_faculty_id = $${values.length}`);
+    }
+
+    values.push(newSwapStatus);
+    updates.push(`swap_status = $${values.length}`);
+
+    values.push(id);
+    const updateQuery = `
+      UPDATE timetable_slots
+      SET ${updates.join(', ')}
+      WHERE id = $${values.length}
+      RETURNING *;
+    `;
+
+    const result = await pool.query(updateQuery, values);
+    const updatedSlot = result.rows[0];
+
+    const dbReceipt = {
+      receiptId: `RCPT-TTSWAP-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      transactionId: `tx_ttswap_${id.substring(0, 8)}_${Date.now()}`,
+      table: 'timetable_slots',
+      recordId: id,
+      swapStatus: newSwapStatus,
+      updatedBy: req.user.userId || req.user.id,
+      timestamp: new Date().toISOString(),
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: `Timetable slot swap status updated to '${newSwapStatus}'`,
+      dbReceipt,
+      slot: updatedSlot,
+    });
+  } catch (error) {
+    console.error('swapTimetableSlot error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to update slot swap' });
+  }
+}
+
 export default {
   masterSetup,
   getDailyView,
   createSwapRequest,
   approveSwap,
+  getTimetableSlots,
+  createTimetableSlots,
+  swapTimetableSlot,
 };
 

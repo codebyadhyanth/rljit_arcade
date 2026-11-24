@@ -32,14 +32,15 @@ export async function getNextSequence(prefix, startSeq = 1, dbClient = pool) {
  * @returns {Promise<string>} generated username
  */
 export async function generateUsername(
-  { role, adminTier, sectionCode, department, admissionYear, entryType },
+  { role, adminTier, sectionCode, department, admissionYear, entryType, coreBranch },
   dbClient = pool
 ) {
   const currentYear = new Date().getFullYear();
   const year = admissionYear ? parseInt(admissionYear, 10) : currentYear;
   const yy = String(year).slice(-2);
-  const dept = (department || '').trim().toUpperCase();
+  let dept = (department || '').trim().toUpperCase();
   const sec = (sectionCode || '').trim().toUpperCase();
+  const branch = (coreBranch || '').trim().toUpperCase();
 
   // 1. SUPER_ADMIN -> RLSUPER001
   if (adminTier === 'SUPER_ADMIN') {
@@ -72,12 +73,14 @@ export async function generateUsername(
 
   // 5. STUDENT -> REGULAR: 1RL${YY}${DEPT}001, LATERAL: 1RL${YY}${DEPT}401
   if (role === 'STUDENT') {
-    if (!dept) throw new Error('Department is required for Student USN generation');
+    // If Year 1 Allied Science student, use core branch for USN branch abbreviation
+    const usnDept = (dept === 'ALLIED_SCIENCE' && branch) ? branch : dept;
+    if (!usnDept) throw new Error('Department or coreBranch is required for Student USN generation');
     const isLateral = String(entryType || '').trim().toUpperCase() === 'LATERAL';
     const startSeq = isLateral ? 401 : 1;
-    const prefix = isLateral ? `1RL${yy}${dept}_LAT` : `1RL${yy}${dept}_REG`;
+    const prefix = isLateral ? `1RL${yy}${usnDept}_LAT` : `1RL${yy}${usnDept}_REG`;
     const seq = await getNextSequence(prefix, startSeq, dbClient);
-    return `1RL${yy}${dept}${String(seq).padStart(3, '0')}`;
+    return `1RL${yy}${usnDept}${String(seq).padStart(3, '0')}`;
   }
 
   throw new Error(`Unable to generate username: unknown role configuration`);
