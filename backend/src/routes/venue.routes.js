@@ -14,6 +14,7 @@ import {
   cancelBooking,
   requestTransfer,
   respondTransferRequest,
+  reviewBooking,
 } from '../controllers/venue.controller.js';
 
 import {
@@ -41,6 +42,7 @@ router.get('/venues/bookings', verifyJWT, listBookings);
 router.get('/venues/bookings/:id', verifyJWT, getBookingDetails);
 
 // 4. Multi-Stage Approval Reviews
+router.patch('/venues/bookings/:id/review', verifyJWT, reviewBooking);
 router.patch('/venues/bookings/:id/hod-review', verifyJWT, requireHOD, hodReview);
 router.patch('/venues/bookings/:id/principal-review', verifyJWT, requirePrincipal, principalReview);
 router.patch('/venues/bookings/:id/coordinator-response', verifyJWT, requireFaculty, coordinatorResponse);

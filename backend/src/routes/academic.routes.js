@@ -7,6 +7,12 @@ import {
   hodApproveUnlock,
   principalApproveUnlock,
   executeUnlockedUpdate,
+  markManualAttendance,
+  getStudentAttendance,
+  getSectionAttendance,
+  upsertCieMarks,
+  getStudentCieMarks,
+  getSectionCieMarks,
 } from '../controllers/academic.controller.js';
 import {
   verifyJWT,
@@ -17,6 +23,16 @@ import {
 import { uploadOcr } from '../middlewares/upload.middleware.js';
 
 const router = Router();
+
+// Wave 2 Manual Attendance endpoints
+router.post('/attendance/manual', verifyJWT, requireFaculty, markManualAttendance);
+router.get('/attendance/student/:studentId', verifyJWT, getStudentAttendance);
+router.get('/attendance/section', verifyJWT, getSectionAttendance);
+
+// Wave 2 Manual CIE Marks endpoints
+router.post('/cie/manual', verifyJWT, requireFaculty, upsertCieMarks);
+router.get('/cie/student/:studentId', verifyJWT, getStudentCieMarks);
+router.get('/cie/section', verifyJWT, getSectionCieMarks);
 
 // OCR upload & draft parsing
 router.post(

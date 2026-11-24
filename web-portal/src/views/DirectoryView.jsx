@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import MaskedField from '../components/MaskedField';
-import UnderDevelopmentView from '../components/UnderDevelopmentView';
 import { Search, ShieldAlert, Clock, User, CheckCircle2, Sparkles, Filter } from 'lucide-react';
 
 export default function DirectoryView() {
@@ -13,17 +12,6 @@ export default function DirectoryView() {
   const [searched, setSearched] = useState(false);
   const [execTimeMs, setExecTimeMs] = useState(null);
   const [error, setError] = useState('');
-
-  // If user is STUDENT, show UnderDevelopmentView for student directory
-  if (user?.baseRole === 'STUDENT') {
-    return (
-      <UnderDevelopmentView
-        moduleName="Student Campus Directory"
-        phase="Phase 2"
-        description="Public student campus directory is currently restricted pending student privacy consent opt-ins."
-      />
-    );
-  }
 
   const handleSearch = async (e) => {
     e?.preventDefault();
