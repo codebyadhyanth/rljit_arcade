@@ -58,7 +58,7 @@ export const generalApiLimiter = rateLimit({
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 25,
+  max: process.env.NODE_ENV === 'production' ? 25 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

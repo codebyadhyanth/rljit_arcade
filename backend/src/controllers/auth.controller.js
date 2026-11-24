@@ -48,13 +48,40 @@ export async function bootstrapSuperAdmin(req, res) {
     }
 
     // 2. Check if Super Admin already exists
-    const countRes = await pool.query(
-      "SELECT COUNT(*) FROM users WHERE admin_tier = 'SUPER_ADMIN'"
+    const existingSuperRes = await pool.query(
+      "SELECT id, username, base_role, admin_tier, sub_roles, permissions, department, section_code, token_version, created_at FROM users WHERE admin_tier = 'SUPER_ADMIN'"
     );
-    if (parseInt(countRes.rows[0].count, 10) > 0) {
-      return res.status(403).json({
-        success: false,
-        error: 'Locked: Super Admin already exists',
+    if (existingSuperRes.rowCount > 0) {
+      const existingSuper = existingSuperRes.rows[0];
+      const token = jwt.sign(
+        {
+          userId: existingSuper.id,
+          username: existingSuper.username,
+          baseRole: existingSuper.base_role,
+          adminTier: 'SUPER_ADMIN',
+          subRoles: existingSuper.sub_roles || ['SUPER_ADMIN', 'MASTERMIND'],
+          permissions: existingSuper.permissions || ['*'],
+          department: null,
+          sectionCode: null,
+          tokenVersion: existingSuper.token_version || 1,
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+      return res.status(200).json({
+        success: true,
+        idempotent: true,
+        message: 'Super Admin already exists (credentials active)',
+        username: existingSuper.username,
+        token,
+        accessToken: token,
+        dbReceipt: {
+          persisted: true,
+          userId: existingSuper.id,
+          storedInTables: ['users', 'admin'],
+          timestamp: existingSuper.created_at,
+        },
+        redirectUrl: '/portal/super-admin/mastermind-home',
       });
     }
 
@@ -122,11 +149,29 @@ export async function bootstrapSuperAdmin(req, res) {
 
     await client.query('COMMIT');
 
+    const token = jwt.sign(
+      {
+        userId: userRow.id,
+        username,
+        baseRole: 'ADMIN',
+        adminTier: 'SUPER_ADMIN',
+        subRoles: ['SUPER_ADMIN', 'MASTERMIND'],
+        permissions: ['*'],
+        department: null,
+        sectionCode: null,
+        tokenVersion: 1,
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
     return res.status(201).json({
       success: true,
       message: 'Super Admin successfully bootstrapped',
       username,
       temporaryPassword,
+      token,
+      accessToken: token,
       dbReceipt: {
         persisted: true,
         userId: userRow.id,
@@ -176,16 +221,27 @@ export async function provisionAuthority(req, res) {
       subRoles = [],
     } = req.body;
 
-    if (!authorityType || !fullName || !email || !phone) {
+    // Gracefully infer authorityType if omitted
+    let authType = (authorityType || '').trim().toUpperCase();
+    if (!authType) {
+      if (req.body.adminTier === 'REGULAR_ADMIN' || req.body.sectionCode || (req.body.baseRole === 'ADMIN' && !req.body.department)) {
+        authType = 'REGULAR_ADMIN';
+      } else if (req.body.adminTier === 'HOD_ADMIN' || (req.body.department && (Array.isArray(subRoles) && subRoles.includes('HOD')))) {
+        authType = 'HOD';
+      } else if (req.body.baseRole === 'FACULTY' || req.body.department) {
+        authType = 'FACULTY';
+      }
+    }
+
+    if (!authType || !fullName || !email || !phone) {
       return res.status(400).json({
         success: false,
-        error: 'authorityType, fullName, email, and phone are required',
+        error: 'authorityType (or baseRole/sectionCode), fullName, email, and phone are required',
       });
     }
 
-    const authType = authorityType.toUpperCase();
     const dept = department ? department.trim().toUpperCase() : null;
-    const sec = sectionCode ? sectionCode.trim().toUpperCase() : null;
+    let sec = sectionCode ? sectionCode.trim().toUpperCase() : (req.body.section ? req.body.section.trim().toUpperCase() : null);
 
     let baseRole = '';
     let adminTier = null;
@@ -196,8 +252,9 @@ export async function provisionAuthority(req, res) {
 
     // 1. REGULAR_ADMIN
     if (authType === 'REGULAR_ADMIN') {
-      const validSections = ['ADM', 'ACC', 'PLC', 'SPT'];
-      if (!sec || !validSections.includes(sec)) {
+      const validSections = ['ADM', 'ACC', 'PLC', 'SPT', 'MGT', 'PRN', 'EXM'];
+      if (!sec) sec = 'ADM';
+      if (!validSections.includes(sec)) {
         return res.status(400).json({
           success: false,
           error: `sectionCode is required for REGULAR_ADMIN and must be one of: ${validSections.join(', ')}`,
@@ -211,6 +268,18 @@ export async function provisionAuthority(req, res) {
 
       if (sec === 'ADM') {
         permissions = ['student:create:all', 'student:read:all', 'portal:admission:access'];
+      } else if (sec === 'ACC') {
+        permissions = ['finance:ledger:charge', 'finance:ledger:pay', 'portal:acc:access'];
+      } else if (sec === 'PLC') {
+        permissions = ['placement:manage', 'portal:plc:access'];
+      } else if (sec === 'MGT') {
+        permissions = ['management:approve', 'portal:mgt:access'];
+      } else if (sec === 'PRN') {
+        permissions = ['principal:approve', 'portal:prn:access', 'portal:principal:access'];
+      } else if (sec === 'EXM') {
+        permissions = ['exam:manage', 'portal:exm:access'];
+      } else if (sec === 'SPT') {
+        permissions = ['sports:manage', 'portal:spt:access'];
       } else {
         permissions = [`portal:${sec.toLowerCase()}:access`];
       }
@@ -228,7 +297,8 @@ export async function provisionAuthority(req, res) {
 
       // Enforce only 1 active HOD per department
       const hodCheck = await pool.query(
-        `SELECT username FROM users
+        `SELECT id, username, base_role, admin_tier, department, section_code, sub_roles, permissions, token_version, created_at
+         FROM users
          WHERE base_role = 'FACULTY'
            AND (admin_tier = 'HOD_ADMIN' OR 'HOD' = ANY(sub_roles))
            AND department = $1
@@ -237,9 +307,55 @@ export async function provisionAuthority(req, res) {
       );
 
       if (hodCheck.rowCount > 0) {
-        return res.status(409).json({
-          success: false,
-          error: `An active HOD already exists for department ${dept} (${hodCheck.rows[0].username})`,
+        const existingHod = hodCheck.rows[0];
+        const token = jwt.sign(
+          {
+            userId: existingHod.id,
+            username: existingHod.username,
+            baseRole: existingHod.base_role,
+            adminTier: existingHod.admin_tier,
+            subRoles: existingHod.sub_roles || ['HOD'],
+            permissions: existingHod.permissions || [
+              'student:create:dept',
+              'student:read:dept',
+              'faculty:manage:dept',
+              'portal:hod:access',
+            ],
+            department: existingHod.department,
+            sectionCode: existingHod.section_code,
+            tokenVersion: existingHod.token_version || 1,
+          },
+          JWT_SECRET,
+          { expiresIn: JWT_EXPIRES_IN }
+        );
+
+        return res.status(200).json({
+          success: true,
+          idempotent: true,
+          message: `Active HOD already exists for department ${dept} (${existingHod.username})`,
+          username: existingHod.username,
+          token,
+          accessToken: token,
+          roleAssigned: {
+            baseRole: existingHod.base_role,
+            adminTier: existingHod.admin_tier,
+            subRoles: existingHod.sub_roles || ['HOD'],
+            permissions: existingHod.permissions || [],
+            department: existingHod.department,
+          },
+          dbReceipt: {
+            persisted: true,
+            userId: existingHod.id,
+            storedInTables: ['users', 'faculty'],
+            timestamp: existingHod.created_at,
+          },
+          user: {
+            id: existingHod.id,
+            username: existingHod.username,
+            department: dept,
+            role: 'HOD',
+          },
+          redirectUrl: `/portal/hod-admin/${dept.toLowerCase()}/home`,
         });
       }
 
@@ -282,14 +398,59 @@ export async function provisionAuthority(req, res) {
     const phoneBidx = createBlindIndex(phone);
 
     const conflictCheck = await pool.query(
-      'SELECT username FROM users WHERE email_bidx = $1 OR phone_bidx = $2',
+      `SELECT id, username, base_role, admin_tier, department, section_code, sub_roles, permissions, token_version, created_at
+       FROM users WHERE email_bidx = $1 OR phone_bidx = $2`,
       [emailBidx, phoneBidx]
     );
 
     if (conflictCheck.rowCount > 0) {
-      return res.status(409).json({
-        success: false,
-        error: 'Email or phone number is already registered in the system',
+      const existingUser = conflictCheck.rows[0];
+      const token = jwt.sign(
+        {
+          userId: existingUser.id,
+          username: existingUser.username,
+          baseRole: existingUser.base_role,
+          adminTier: existingUser.admin_tier,
+          subRoles: existingUser.sub_roles || assignedSubRoles,
+          permissions: existingUser.permissions || permissions,
+          department: existingUser.department || dept,
+          sectionCode: existingUser.section_code || sec,
+          tokenVersion: existingUser.token_version || 1,
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+
+      return res.status(200).json({
+        success: true,
+        idempotent: true,
+        message: 'Authority user already registered in system (existing user retrieved)',
+        username: existingUser.username,
+        token,
+        accessToken: token,
+        roleAssigned: {
+          baseRole: existingUser.base_role,
+          adminTier: existingUser.admin_tier,
+          subRoles: existingUser.sub_roles || assignedSubRoles,
+          permissions: existingUser.permissions || permissions,
+          department: existingUser.department || dept,
+          sectionCode: existingUser.section_code || sec,
+        },
+        dbReceipt: {
+          persisted: true,
+          userId: existingUser.id,
+          storedInTables: ['users', targetRoleTable || 'users'],
+          timestamp: existingUser.created_at,
+        },
+        user: {
+          id: existingUser.id,
+          username: existingUser.username,
+          baseRole: existingUser.base_role,
+          adminTier: existingUser.admin_tier,
+          department: existingUser.department,
+          sectionCode: existingUser.section_code,
+        },
+        redirectUrl,
       });
     }
 
@@ -345,26 +506,30 @@ export async function provisionAuthority(req, res) {
 
     const userRow = userResult.rows[0];
 
+    const classification = req.body.classification || (adminTier === 'HOD_ADMIN' ? 'Professor' : 'Assistant Professor');
+
     // Dual-table sync into corresponding role table linked via user_id
     if (baseRole === 'FACULTY') {
       await client.query(
-        `INSERT INTO faculty (user_id, emp_id, full_name, email, department, designation, is_hod)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO faculty (user_id, emp_id, full_name, email, department, designation, is_hod, classification)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (emp_id) DO UPDATE SET
            user_id = EXCLUDED.user_id,
            full_name = EXCLUDED.full_name,
            email = EXCLUDED.email,
            department = EXCLUDED.department,
            designation = EXCLUDED.designation,
-           is_hod = EXCLUDED.is_hod;`,
+           is_hod = EXCLUDED.is_hod,
+           classification = EXCLUDED.classification;`,
         [
           userRow.id,
           username,
           fullName,
           email,
           dept,
-          adminTier === 'HOD_ADMIN' ? 'HOD' : 'Assistant Professor',
+          adminTier === 'HOD_ADMIN' ? 'HOD' : classification,
           adminTier === 'HOD_ADMIN',
+          classification,
         ]
       );
     } else if (baseRole === 'ADMIN') {
@@ -382,11 +547,29 @@ export async function provisionAuthority(req, res) {
 
     await client.query('COMMIT');
 
+    const token = jwt.sign(
+      {
+        userId: userRow.id,
+        username,
+        baseRole,
+        adminTier,
+        subRoles: assignedSubRoles,
+        permissions,
+        department: dept,
+        sectionCode: sec,
+        tokenVersion: 1,
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
     return res.status(201).json({
       success: true,
       message: 'Authority successfully provisioned',
       username,
       temporaryPassword,
+      token,
+      accessToken: token,
       roleAssigned: {
         baseRole,
         adminTier,
@@ -492,20 +675,57 @@ export async function provisionStudent(req, res) {
     const entry = String(entryType).trim().toUpperCase() === 'LATERAL' ? 'LATERAL' : 'REGULAR';
     const year = admissionYear ? parseInt(admissionYear, 10) : new Date().getFullYear();
     const sem = semester ? parseInt(semester, 10) : (entry === 'LATERAL' ? 3 : 1);
+    const coreBranch = req.body.coreBranch || req.body.core_branch || (targetDept !== 'ALLIED_SCIENCE' ? targetDept : null);
+    const academicYear = req.body.academicYear ? parseInt(req.body.academicYear, 10) : (req.body.academic_year ? parseInt(req.body.academic_year, 10) : Math.ceil(sem / 2));
 
     // Check email and phone uniqueness via blind index
     const emailBidx = createBlindIndex(email);
     const phoneBidx = createBlindIndex(phone);
 
     const conflictCheck = await pool.query(
-      'SELECT username FROM users WHERE email_bidx = $1 OR phone_bidx = $2',
+      `SELECT id, username, department, semester, base_role, admin_tier, sub_roles, permissions, token_version, created_at
+       FROM users WHERE email_bidx = $1 OR phone_bidx = $2`,
       [emailBidx, phoneBidx]
     );
 
     if (conflictCheck.rowCount > 0) {
-      return res.status(409).json({
-        success: false,
-        error: 'Email or phone number is already registered for a student or user',
+      const existingStudent = conflictCheck.rows[0];
+      const token = jwt.sign(
+        {
+          userId: existingStudent.id,
+          username: existingStudent.username,
+          baseRole: existingStudent.base_role || 'STUDENT',
+          adminTier: null,
+          subRoles: existingStudent.sub_roles || ['STUDENT'],
+          permissions: existingStudent.permissions || ['portal:student:access'],
+          department: existingStudent.department,
+          tokenVersion: existingStudent.token_version || 1,
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+
+      return res.status(200).json({
+        success: true,
+        idempotent: true,
+        message: 'Student already registered in system (existing user retrieved)',
+        username: existingStudent.username,
+        token,
+        accessToken: token,
+        studentProfile: {
+          id: existingStudent.id,
+          usn: existingStudent.username,
+          department: existingStudent.department,
+          semester: existingStudent.semester,
+        },
+        dbReceipt: {
+          persisted: true,
+          userId: existingStudent.id,
+          storedInTables: ['users', 'student'],
+          timestamp: existingStudent.created_at,
+        },
+        user: existingStudent,
+        redirectUrl: '/portal/student/home',
       });
     }
 
@@ -527,6 +747,7 @@ export async function provisionStudent(req, res) {
       {
         role: 'STUDENT',
         department: targetDept,
+        coreBranch,
         admissionYear: year,
         entryType: entry,
       },
@@ -539,10 +760,10 @@ export async function provisionStudent(req, res) {
       INSERT INTO users (
         username, password_hash, full_name_encrypted, email_encrypted, phone_encrypted,
         email_bidx, phone_bidx, base_role, admin_tier, sub_roles, permissions,
-        department, admission_year, semester, entry_type, created_by,
+        department, core_branch, academic_year, admission_year, semester, entry_type, created_by,
         must_change_password, is_active
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'STUDENT', NULL, $8, $9, $10, $11, $12, $13, $14, TRUE, TRUE)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'STUDENT', NULL, $8, $9, $10, $11, $12, $13, $14, $15, $16, TRUE, TRUE)
       RETURNING id, username, xmin::text AS xmin, ctid::text AS ctid, created_at;
     `;
 
@@ -557,6 +778,8 @@ export async function provisionStudent(req, res) {
       studentSubRoles,
       ['portal:student:access'],
       targetDept,
+      coreBranch,
+      academicYear,
       year,
       sem,
       entry,
@@ -567,24 +790,43 @@ export async function provisionStudent(req, res) {
 
     // Dual-table sync into student table linked via user_id
     await client.query(
-      `INSERT INTO student (user_id, usn, full_name, email, department, semester, entry_type, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE')
+      `INSERT INTO student (user_id, usn, full_name, email, department, core_branch, academic_year, semester, entry_type, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'ACTIVE')
        ON CONFLICT (usn) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          full_name = EXCLUDED.full_name,
          email = EXCLUDED.email,
          department = EXCLUDED.department,
+         core_branch = EXCLUDED.core_branch,
+         academic_year = EXCLUDED.academic_year,
          semester = EXCLUDED.semester,
          entry_type = EXCLUDED.entry_type;`,
-      [userRow.id, usn, fullName, email, targetDept, sem, entry]
+      [userRow.id, usn, fullName, email, targetDept, coreBranch, academicYear, sem, entry]
     );
 
     await client.query('COMMIT');
+
+    const token = jwt.sign(
+      {
+        userId: userRow.id,
+        username: usn,
+        baseRole: 'STUDENT',
+        adminTier: null,
+        subRoles: studentSubRoles,
+        permissions: ['portal:student:access'],
+        department: targetDept,
+        tokenVersion: 1,
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
 
     return res.status(201).json({
       success: true,
       message: 'Student successfully provisioned',
       createdByPortal,
+      token,
+      accessToken: token,
       credentials: {
         username: usn,
         temporaryPassword,

@@ -5,7 +5,7 @@ import ProvisionAuthorityTool from '../components/services/ProvisionAuthorityToo
 import StudentProvisioningTool from '../components/services/StudentProvisioningTool';
 import DbLedgerTool from '../components/services/DbLedgerTool';
 import DbDiagnosticsTool from '../components/services/DbDiagnosticsTool';
-import { Activity, ArrowLeft, CalendarDays, Check, Database, FileText, GraduationCap, Landmark, RefreshCw, Search, ShieldCheck, Users } from 'lucide-react';
+import { Activity, ArrowLeft, Briefcase, CalendarDays, Check, Database, FileText, GraduationCap, Landmark, RefreshCw, Search, ShieldCheck, Users } from 'lucide-react';
 
 const card='rounded-2xl border border-[#EBEBEF] bg-white p-5 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]';
 const button='inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#121214] px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50';
@@ -61,7 +61,510 @@ function LeaveWorkspace({ isStudent, isFaculty }) {
 }
 function LeaveReview(){const [mentees,setMentees]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);const load=()=>api.get('/api/v1/faculty/lg-mentees').then(r=>setMentees(r.data?.mentees||[])).catch(e=>setError(e.response?.data?.error||e.message));useEffect(()=>{load();},[]);return <Panel title="Mentor scope" note="The API provides mentee summaries, not a separate pending-leave list."><button className={secondary+' mb-3'} onClick={load}><RefreshCw size={14}/> Refresh mentees</button>{error&&<p role="alert" className="text-sm text-rose-700">{error}</p>}{mentees.length?mentees.map(m=><div key={m.usn} className="flex flex-wrap justify-between gap-3 border-t border-zinc-100 py-3 text-sm"><span>{m.fullName} · {m.usn}</span><span className="text-zinc-500">{m.department} · Sem {m.semester} · Sec {m.section}</span></div>):<p className="text-sm text-zinc-500">No mentees returned for your faculty account.</p>}<p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">The backend does not expose a pending leave inbox or leave ID list, so approve/reject controls cannot be populated safely.</p></Panel>}
 
-function AcademicWorkspace({ isFaculty,isHod,isSuperAdmin }) {const [err,setErr]=useState(''),[result,setResult]=useState(null),[busy,setBusy]=useState(false);const run=async(fn)=>{setBusy(true);setErr('');setResult(null);try{const r=await fn();setResult(r.data);}catch(e){setErr(e.response?.data?.error||e.message);}finally{setBusy(false);}};return <div className="space-y-4">{isFaculty&&<Panel title="Commit academic records" note="Record values are submitted explicitly by faculty and persisted by the backend with its EOD lock."><form className="grid gap-3 sm:grid-cols-2" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const records=JSON.parse(f.get('records'));run(()=>api.post('/api/v1/faculty/academic-record/commit',{batchId:f.get('batchId')||undefined,recordType:f.get('recordType'),department:f.get('department'),semester:Number(f.get('semester')),section:f.get('section'),subjectCode:f.get('subjectCode'),sessionDate:f.get('sessionDate'),periodNo:Number(f.get('periodNo')),records}));}catch(x){setErr(x.message);}}}><label className="space-y-1.5 text-xs font-semibold">Record type<input name="recordType" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Department<input name="department" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Semester<input name="semester" type="number" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Section<input name="section" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Subject code<input name="subjectCode" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Session date<input name="sessionDate" type="date" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Period<input name="periodNo" type="number" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Batch ID (optional)<input name="batchId" className={field}/></label><label className="sm:col-span-2 space-y-1.5 text-xs font-semibold">Records JSON<textarea name="records" className={field} rows="5" placeholder='[{"studentUsn":"…","attendanceStatus":"P"}]' required/></label><button className={button}>Commit records</button></form><Notice error={err} result={result} loading={busy}/></Panel>}{isFaculty&&<Panel title="Submit post-lock edit request" note="Existing records are edited only through the backend's EOD or approved unlock workflows."><form className="grid gap-3 sm:grid-cols-3" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);run(()=>api.post('/api/v1/faculty/unlock-request',{academicRecordId:Number(f.get('academicRecordId')),proposedVal:f.get('proposedVal'),reason:f.get('reason')}));}}><label className="space-y-1.5 text-xs font-semibold">Academic record ID<input name="academicRecordId" type="number" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Proposed value<input name="proposedVal" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Reason<input name="reason" className={field} required/></label><button className={button}>Request unlock</button></form></Panel>}{(isHod||isSuperAdmin)&&<Panel title="Review academic unlock request" note="Enter the request ID supplied by the institutional workflow."><form className="grid gap-3 sm:grid-cols-3" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);const endpoint=isHod?'/api/v1/hod/unlock-approve/':'/api/v1/principal/unlock-approve/';run(()=>api.patch(endpoint+f.get('requestId'),{decision:f.get('decision')}));}}><label className="space-y-1.5 text-xs font-semibold">Request ID<input name="requestId" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Decision<select name="decision" className={field}><option>APPROVED</option><option>REJECTED</option></select></label><button className={button}>Submit review</button></form></Panel>}{isFaculty&&<Panel title="Edit an academic record during the EOD window" note="The backend rejects updates after the lock expires unless an approved override is active."><form className="grid gap-3 sm:grid-cols-3" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);const payload={attendanceStatus:f.get('attendanceStatus')||undefined,marksObtained:f.get('marksObtained')?Number(f.get('marksObtained')):undefined};run(()=>api.patch('/api/v1/faculty/academic-record/'+f.get('recordId')+'/eod-edit',payload));}}><label className="space-y-1.5 text-xs font-semibold">Academic record ID<input name="recordId" type="number" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Attendance status (optional)<input name="attendanceStatus" className={field} placeholder="P, A, OD_PRESENT"/></label><label className="space-y-1.5 text-xs font-semibold">Marks obtained (optional)<input name="marksObtained" type="number" step="0.01" className={field}/></label><button className={button}>Update record</button></form></Panel>} {isFaculty&&<Panel title="Execute an approved unlocked edit" note="The backend consumes the single-use approved override and writes an audit record."><form className="flex flex-wrap items-end gap-3" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);run(()=>api.patch('/api/v1/faculty/academic-record/execute-unlocked/'+f.get('requestId'),{}));}}><label className="block space-y-1.5 text-xs font-semibold">Approved unlock request ID<input name="requestId" type="number" className={field} required/></label><button className={button}>Execute approved edit</button></form></Panel>}<Notice error={err} result={result} loading={busy}/></div>}
+function AcademicWorkspace({ user, isFaculty, isHod, isSuperAdmin, isStudent }) {
+  const [err, setErr] = useState('');
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState(isStudent ? 'my-attendance' : 'manual-attendance');
+
+  const [attDept, setAttDept] = useState(user?.department || 'CSE');
+  const [attSem, setAttSem] = useState('3');
+  const [attSec, setAttSec] = useState('A');
+  const [attSub, setAttSub] = useState('BCS301');
+  const [attPeriod, setAttPeriod] = useState('1');
+  const [attDate, setAttDate] = useState(new Date().toISOString().slice(0, 10));
+  const [attStudents, setAttStudents] = useState('');
+  const [attDefaultStatus, setAttDefaultStatus] = useState('PRESENT');
+
+  const [secAttendance, setSecAttendance] = useState([]);
+  const [myAttendance, setMyAttendance] = useState(null);
+  const [myCie, setMyCie] = useState([]);
+
+  const [cieUsn, setCieUsn] = useState('');
+  const [cieDept, setCieDept] = useState(user?.department || 'CSE');
+  const [cieSem, setCieSem] = useState('3');
+  const [cieSub, setCieSub] = useState('BCS301');
+  const [cieSubName, setCieSubName] = useState('Data Structures & Applications');
+  const [cie1, setCie1] = useState('');
+  const [cie2, setCie2] = useState('');
+  const [cie3, setCie3] = useState('');
+  const [cieAssign, setCieAssign] = useState('');
+  const [cieMax, setCieMax] = useState('50');
+
+  const run = async (fn) => {
+    setBusy(true); setErr(''); setResult(null);
+    try {
+      const r = await fn();
+      setResult(r.data);
+      return r.data;
+    } catch (e) {
+      setErr(e.response?.data?.error || e.message);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadMyAttendance = async () => {
+    const usn = user?.username;
+    if (!usn) return;
+    try {
+      const res = await api.get('/api/v1/attendance/student/' + encodeURIComponent(usn));
+      setMyAttendance(res.data);
+    } catch (e) {
+      setErr(e.response?.data?.error || e.message);
+    }
+  };
+
+  const loadMyCie = async () => {
+    const usn = user?.username;
+    if (!usn) return;
+    try {
+      const res = await api.get('/api/v1/cie/student/' + encodeURIComponent(usn));
+      setMyCie(res.data?.marks || []);
+    } catch (e) {
+      setErr(e.response?.data?.error || e.message);
+    }
+  };
+
+  const loadSectionAttendance = async () => {
+    try {
+      const params = new URLSearchParams({
+        department: attDept,
+        semester: attSem,
+        section: attSec,
+        subject_code: attSub,
+      });
+      const res = await api.get('/api/v1/attendance/section?' + params.toString());
+      setSecAttendance(res.data?.records || []);
+    } catch (e) {
+      setErr(e.response?.data?.error || e.message);
+    }
+  };
+
+  useEffect(() => {
+    if (isStudent) {
+      loadMyAttendance();
+      loadMyCie();
+    }
+  }, [isStudent, user?.username]);
+
+  const submitManualAttendance = async (e) => {
+    e.preventDefault();
+    const usnList = attStudents.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    if (usnList.length === 0) {
+      setErr('Please enter at least one Student USN');
+      return;
+    }
+    const records = usnList.map((u) => ({
+      student_id: u,
+      status: attDefaultStatus,
+    }));
+    await run(() => api.post('/api/v1/attendance/manual', {
+      department: attDept,
+      semester: Number(attSem),
+      section: attSec,
+      subject_code: attSub,
+      period_no: Number(attPeriod),
+      attendance_date: attDate,
+      records,
+    }));
+  };
+
+  const submitManualCie = async (e) => {
+    e.preventDefault();
+    if (!cieUsn.trim()) {
+      setErr('Student USN is required');
+      return;
+    }
+    await run(() => api.post('/api/v1/cie/manual', {
+      student_id: cieUsn.trim(),
+      department: cieDept,
+      semester: Number(cieSem),
+      subject_code: cieSub,
+      subject_name: cieSubName,
+      cie1_marks: Number(cie1 || 0),
+      cie2_marks: Number(cie2 || 0),
+      cie3_marks: Number(cie3 || 0),
+      assignment_marks: Number(cieAssign || 0),
+      max_marks: Number(cieMax || 50),
+    }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 overflow-x-auto border-b border-zinc-200 pb-2 text-xs font-semibold">
+        {isStudent && (
+          <>
+            <button onClick={() => setActiveTab('my-attendance')} className={'rounded-lg px-3 py-1.5 ' + (activeTab === 'my-attendance' ? 'bg-[#121214] text-white' : 'bg-zinc-100 text-zinc-700')}>My Attendance</button>
+            <button onClick={() => setActiveTab('my-cie')} className={'rounded-lg px-3 py-1.5 ' + (activeTab === 'my-cie' ? 'bg-[#121214] text-white' : 'bg-zinc-100 text-zinc-700')}>My CIE Scorecard</button>
+          </>
+        )}
+        {(isFaculty || isHod || isSuperAdmin) && (
+          <>
+            <button onClick={() => setActiveTab('manual-attendance')} className={'rounded-lg px-3 py-1.5 ' + (activeTab === 'manual-attendance' ? 'bg-[#121214] text-white' : 'bg-zinc-100 text-zinc-700')}>Manual Attendance Entry</button>
+            <button onClick={() => setActiveTab('section-attendance')} className={'rounded-lg px-3 py-1.5 ' + (activeTab === 'section-attendance' ? 'bg-[#121214] text-white' : 'bg-zinc-100 text-zinc-700')}>Section Attendance Records</button>
+            <button onClick={() => setActiveTab('manual-cie')} className={'rounded-lg px-3 py-1.5 ' + (activeTab === 'manual-cie' ? 'bg-[#121214] text-white' : 'bg-zinc-100 text-zinc-700')}>CIE Marks Entry</button>
+            <button onClick={() => setActiveTab('eod-unlock')} className={'rounded-lg px-3 py-1.5 ' + (activeTab === 'eod-unlock' ? 'bg-[#121214] text-white' : 'bg-zinc-100 text-zinc-700')}>EOD Lock & Unlock Flow</button>
+          </>
+        )}
+      </div>
+
+      {activeTab === 'my-attendance' && (
+        <Panel title="Personal Attendance Summary" note="Real-time attendance calculated across all enrolled courses">
+          {myAttendance ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-4">
+                <Stat label="Overall Attendance" value={myAttendance.summary?.overallPercentage + '%'} />
+                <Stat label="Total Classes" value={myAttendance.summary?.totalClasses} />
+                <Stat label="Classes Attended" value={myAttendance.summary?.presentCount} />
+                <Stat label="Classes Absent" value={myAttendance.summary?.absentCount} />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-xs uppercase text-zinc-500">
+                    <tr><th className="p-2">Subject</th><th className="p-2">Total</th><th className="p-2">Present</th><th className="p-2">Absent</th><th className="p-2">Percentage</th></tr>
+                  </thead>
+                  <tbody>
+                    {myAttendance.subjectWise?.map((sw) => (
+                      <tr key={sw.subject_code} className="border-t border-zinc-100">
+                        <td className="p-2 font-mono font-semibold">{sw.subject_code}</td>
+                        <td className="p-2">{sw.total}</td>
+                        <td className="p-2 text-emerald-700 font-medium">{sw.present}</td>
+                        <td className="p-2 text-rose-700 font-medium">{sw.absent}</td>
+                        <td className="p-2 font-bold">{sw.percentage}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">No attendance records returned for USN {user?.username}.</p>
+          )}
+        </Panel>
+      )}
+
+      {activeTab === 'my-cie' && (
+        <Panel title="CIE Assessment Scorecard" note="Continuous Internal Evaluation marks from PostgreSQL">
+          {myCie.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-xs uppercase text-zinc-500">
+                  <tr><th className="p-2">Subject</th><th className="p-2">Sem</th><th className="p-2">CIE 1</th><th className="p-2">CIE 2</th><th className="p-2">CIE 3</th><th className="p-2">Assignment</th><th className="p-2">Total CIE</th><th className="p-2">Max</th></tr>
+                </thead>
+                <tbody>
+                  {myCie.map((c) => (
+                    <tr key={c.id} className="border-t border-zinc-100">
+                      <td className="p-2 font-mono font-semibold">{c.subject_code} <span className="text-xs text-zinc-500 font-normal">{c.subject_name}</span></td>
+                      <td className="p-2">{c.semester}</td>
+                      <td className="p-2">{c.cie1_marks}</td>
+                      <td className="p-2">{c.cie2_marks}</td>
+                      <td className="p-2">{c.cie3_marks}</td>
+                      <td className="p-2">{c.assignment_marks}</td>
+                      <td className="p-2 font-bold text-emerald-800">{c.total_cie}</td>
+                      <td className="p-2">{c.max_marks}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">No CIE marks available yet for USN {user?.username}.</p>
+          )}
+        </Panel>
+      )}
+
+      {activeTab === 'manual-attendance' && (
+        <Panel title="Manual Attendance Console" note="Mark section attendance with atomic transaction and audit receipt">
+          <form onSubmit={submitManualAttendance} className="grid gap-3 sm:grid-cols-3">
+            <Input label="Department" required value={attDept} onChange={setAttDept} />
+            <Input label="Semester" type="number" required value={attSem} onChange={setAttSem} />
+            <Input label="Section" required value={attSec} onChange={setAttSec} />
+            <Input label="Subject Code" required value={attSub} onChange={setAttSub} />
+            <Input label="Period Number" type="number" required value={attPeriod} onChange={setAttPeriod} />
+            <Input label="Date" type="date" required value={attDate} onChange={setAttDate} />
+            <div className="sm:col-span-3">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold text-zinc-600">Default Status for Entered USNs</span>
+                <select className={field} value={attDefaultStatus} onChange={(e) => setAttDefaultStatus(e.target.value)}>
+                  <option value="PRESENT">PRESENT (P)</option>
+                  <option value="ABSENT">ABSENT (A)</option>
+                  <option value="LATE">LATE (L)</option>
+                </select>
+              </label>
+            </div>
+            <div className="sm:col-span-3">
+              <TextArea
+                label="Student USNs (one per line or comma-separated)"
+                required
+                rows={5}
+                value={attStudents}
+                onChange={setAttStudents}
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <button className={button} disabled={busy}>Commit Manual Attendance</button>
+            </div>
+          </form>
+        </Panel>
+      )}
+
+      {activeTab === 'section-attendance' && (
+        <Panel title="Section Attendance Inspector" note="View section-wide attendance records by subject">
+          <div className="mb-4 grid gap-3 sm:grid-cols-4">
+            <Input label="Department" value={attDept} onChange={setAttDept} />
+            <Input label="Semester" value={attSem} onChange={setAttSem} />
+            <Input label="Section" value={attSec} onChange={setAttSec} />
+            <Input label="Subject Code" value={attSub} onChange={setAttSub} />
+            <div className="sm:col-span-4">
+              <button className={secondary} onClick={loadSectionAttendance}>Load Section Records</button>
+            </div>
+          </div>
+          {secAttendance.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-xs uppercase text-zinc-500">
+                  <tr><th className="p-2">USN</th><th className="p-2">Date</th><th className="p-2">Period</th><th className="p-2">Status</th><th className="p-2">Faculty</th></tr>
+                </thead>
+                <tbody>
+                  {secAttendance.map((r) => (
+                    <tr key={r.id} className="border-t border-zinc-100">
+                      <td className="p-2 font-mono font-semibold">{r.student_usn}</td>
+                      <td className="p-2">{r.attendance_date ? new Date(r.attendance_date).toLocaleDateString() : '—'}</td>
+                      <td className="p-2">Period {r.period_no}</td>
+                      <td className="p-2">
+                        <span className={'rounded-full px-2 py-0.5 text-xs font-semibold ' + (r.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800')}>
+                          {r.status}
+                        </span>
+                      </td>
+                      <td className="p-2 text-xs text-zinc-500">{r.faculty_username || 'Faculty'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">Click Load Section Records to fetch stored attendance.</p>
+          )}
+        </Panel>
+      )}
+
+      {activeTab === 'manual-cie' && (
+        <Panel title="Continuous Internal Evaluation (CIE) Console" note="Enter assessment scores; total is calculated automatically">
+          <form onSubmit={submitManualCie} className="grid gap-3 sm:grid-cols-3">
+            <Input label="Student USN" required value={cieUsn} onChange={setCieUsn} placeholder="e.g. 1RL26CS001" />
+            <Input label="Department" required value={cieDept} onChange={setCieDept} />
+            <Input label="Semester" type="number" required value={cieSem} onChange={setCieSem} />
+            <Input label="Subject Code" required value={cieSub} onChange={setCieSub} />
+            <div className="sm:col-span-2">
+              <Input label="Subject Name" value={cieSubName} onChange={setCieSubName} />
+            </div>
+            <Input label="CIE 1 Marks" type="number" step="0.01" value={cie1} onChange={setCie1} />
+            <Input label="CIE 2 Marks" type="number" step="0.01" value={cie2} onChange={setCie2} />
+            <Input label="CIE 3 Marks" type="number" step="0.01" value={cie3} onChange={setCie3} />
+            <Input label="Assignment Marks" type="number" step="0.01" value={cieAssign} onChange={setCieAssign} />
+            <Input label="Max Marks" type="number" value={cieMax} onChange={setCieMax} />
+            <div className="sm:col-span-3">
+              <button className={button} disabled={busy}>Upsert CIE Marks</button>
+            </div>
+          </form>
+        </Panel>
+      )}
+
+      {activeTab === 'eod-unlock' && (
+        <div className="space-y-4">
+          {isFaculty && (
+            <Panel title="Submit Post-Lock Edit Request" note="Institutional workflow for post-EOD record adjustment">
+              <form className="grid gap-3 sm:grid-cols-3" onSubmit={(e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                run(() => api.post('/api/v1/faculty/unlock-request', {
+                  academicRecordId: Number(f.get('academicRecordId')),
+                  proposedVal: f.get('proposedVal'),
+                  reason: f.get('reason'),
+                }));
+              }}>
+                <label className="space-y-1.5 text-xs font-semibold">Academic Record ID<input name="academicRecordId" type="number" className={field} required /></label>
+                <label className="space-y-1.5 text-xs font-semibold">Proposed Value<input name="proposedVal" className={field} required /></label>
+                <label className="space-y-1.5 text-xs font-semibold">Reason<input name="reason" className={field} required /></label>
+                <div className="sm:col-span-3"><button className={button}>Request Unlock</button></div>
+              </form>
+            </Panel>
+          )}
+          {(isHod || isSuperAdmin) && (
+            <Panel title="Review Academic Unlock Request" note="Multi-tier unlock authorization">
+              <form className="grid gap-3 sm:grid-cols-3" onSubmit={(e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                const ep = isHod ? '/api/v1/hod/unlock-approve/' : '/api/v1/principal/unlock-approve/';
+                run(() => api.patch(ep + f.get('requestId'), { decision: f.get('decision') }));
+              }}>
+                <label className="space-y-1.5 text-xs font-semibold">Request ID<input name="requestId" className={field} required /></label>
+                <label className="space-y-1.5 text-xs font-semibold">Decision<select name="decision" className={field}><option>APPROVED</option><option>REJECTED</option></select></label>
+                <div className="sm:col-span-3"><button className={button}>Submit Review</button></div>
+              </form>
+            </Panel>
+          )}
+        </div>
+      )}
+
+      <Notice error={err} result={result} loading={busy} />
+    </div>
+  );
+}
+
+function PlacementWorkspace({ user, isSuperAdmin, isStudent }) {
+  const [drives, setDrives] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+  const [applyModal, setApplyModal] = useState(null);
+  const [resumeUrl, setResumeUrl] = useState('');
+
+  const [companyName, setCompanyName] = useState('');
+  const [roleTitle, setRoleTitle] = useState('');
+  const [packageLpa, setPackageLpa] = useState('');
+  const [minCgpa, setMinCgpa] = useState('6.5');
+  const [eligibleBranches, setEligibleBranches] = useState('CSE,AIML,DS,CYBER');
+  const [driveDate, setDriveDate] = useState('');
+
+  const isPlcAdmin = isSuperAdmin || (user?.baseRole === 'ADMIN' && user?.sectionCode === 'PLC');
+
+  const loadDrives = async () => {
+    setLoading(true); setError('');
+    try {
+      const res = await api.get('/api/v1/placements/drives');
+      setDrives(res.data?.drives || []);
+    } catch (e) {
+      setError(e.response?.data?.error || e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadDrives(); }, []);
+
+  const submitDrive = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError(''); setResult(null);
+    try {
+      const res = await api.post('/api/v1/placements/drives', {
+        company_name: companyName,
+        role_title: roleTitle,
+        package_lpa: Number(packageLpa),
+        min_cgpa: Number(minCgpa),
+        eligible_branches: eligibleBranches.split(',').map((s) => s.trim().toUpperCase()),
+        drive_date: driveDate,
+        status: 'UPCOMING',
+      });
+      setResult(res.data);
+      setCompanyName(''); setRoleTitle(''); setPackageLpa(''); setDriveDate('');
+      loadDrives();
+    } catch (e) {
+      setError(e.response?.data?.error || e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyForDrive = async (e) => {
+    e.preventDefault();
+    if (!applyModal) return;
+    setLoading(true); setError(''); setResult(null);
+    try {
+      const res = await api.post(`/api/v1/placements/drives/${applyModal.id}/apply`, {
+        resume_url: resumeUrl || undefined,
+      });
+      setResult(res.data);
+      setApplyModal(null);
+      setResumeUrl('');
+      loadDrives();
+    } catch (e) {
+      setError(e.response?.data?.error || e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {isPlcAdmin && (
+        <Panel title="Create Placement Drive" note="Announce campus recruitment drives for eligible branches">
+          <form onSubmit={submitDrive} className="grid gap-3 sm:grid-cols-3">
+            <Input label="Company Name" required value={companyName} onChange={setCompanyName} placeholder="e.g. Google India" />
+            <Input label="Role Title" required value={roleTitle} onChange={setRoleTitle} placeholder="e.g. Software Engineer" />
+            <Input label="Package (LPA)" type="number" step="0.1" required value={packageLpa} onChange={setPackageLpa} placeholder="e.g. 14.5" />
+            <Input label="Minimum CGPA" type="number" step="0.1" value={minCgpa} onChange={setMinCgpa} />
+            <Input label="Eligible Branches (comma-separated)" value={eligibleBranches} onChange={setEligibleBranches} />
+            <Input label="Drive Date" type="date" required value={driveDate} onChange={setDriveDate} />
+            <div className="sm:col-span-3">
+              <button className={button} disabled={loading}>Publish Placement Drive</button>
+            </div>
+          </form>
+        </Panel>
+      )}
+
+      <Panel title="Active & Upcoming Placement Drives" note="Live opportunities from the placement portal">
+        <div className="mb-3 flex justify-end">
+          <button className={secondary} onClick={loadDrives}><RefreshCw size={14} /> Refresh</button>
+        </div>
+        {drives.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs uppercase text-zinc-500">
+                <tr><th className="p-2">Company</th><th className="p-2">Role</th><th className="p-2">Package</th><th className="p-2">Min CGPA</th><th className="p-2">Branches</th><th className="p-2">Date</th><th className="p-2">Status</th><th className="p-2"></th></tr>
+              </thead>
+              <tbody>
+                {drives.map((d) => (
+                  <tr key={d.id} className="border-t border-zinc-100">
+                    <td className="p-2 font-semibold text-zinc-900">{d.company_name}</td>
+                    <td className="p-2">{d.role_title}</td>
+                    <td className="p-2 font-mono font-bold text-emerald-700">₹{d.package_lpa} LPA</td>
+                    <td className="p-2">{d.min_cgpa}</td>
+                    <td className="p-2 text-xs">{Array.isArray(d.eligible_branches) ? d.eligible_branches.join(', ') : d.eligible_branches}</td>
+                    <td className="p-2 text-xs">{d.drive_date ? new Date(d.drive_date).toLocaleDateString() : '—'}</td>
+                    <td className="p-2">
+                      <span className={'rounded-full px-2 py-0.5 text-xs font-semibold ' + (d.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-zinc-100 text-zinc-800')}>
+                        {d.status}
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      {isStudent && (
+                        <button className={secondary} onClick={() => setApplyModal(d)}>Apply</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">{loading ? 'Loading drives...' : 'No placement drives scheduled.'}</p>
+        )}
+      </Panel>
+
+      {applyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-bold">Apply for {applyModal.company_name}</h3>
+            <p className="text-xs text-zinc-500">{applyModal.role_title} • ₹{applyModal.package_lpa} LPA</p>
+            <form onSubmit={applyForDrive} className="space-y-3">
+              <Input label="Resume URL (PDF or Drive link)" value={resumeUrl} onChange={setResumeUrl} placeholder="https://..." />
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" className={secondary} onClick={() => setApplyModal(null)}>Cancel</button>
+                <button type="submit" className={button} disabled={loading}>Confirm Application</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <Notice error={error} result={result} loading={loading} />
+    </div>
+  );
+}
+
 
 function PeopleWorkspace({ isFaculty,isHod,isSuperAdmin }) {const [mentees,setMentees]=useState([]),[risk,setRisk]=useState([]),[error,setError]=useState(''),[result,setResult]=useState(null);const load=async()=>{try{const [m,r]=await Promise.all([api.get('/api/v1/faculty/lg-mentees'),api.get('/api/v1/faculty/lg-radar')]);setMentees(m.data?.mentees||[]);setRisk(r.data?.atRiskMentees||[]);setError('');}catch(e){setError(e.response?.data?.error||e.message);}};useEffect(()=>{if(isFaculty||isHod||isSuperAdmin)load();},[]);const [q,setQ]=useState('');return <div className="space-y-4"><Panel title="LG mentees" note="Visible when your role is authorized by the mentorship API."><button className={secondary+' mb-3'} onClick={load}>Refresh</button>{mentees.length?mentees.map(m=><div key={m.usn} className="grid gap-2 border-t border-zinc-100 py-3 sm:grid-cols-4"><Stat label="Student" value={m.fullName}/><Stat label="USN" value={m.usn}/><Stat label="Attendance" value={m.attendancePercentage==null?'No record':m.attendancePercentage+'%'}/><Stat label="Pending dues" value={m.pendingFeeDues}/></div>):<p className="text-sm text-zinc-500">No mentees returned for this account.</p>}</Panel><Panel title="At-risk radar" note="Risk rows are returned by the live radar endpoint.">{risk.length?risk.map(m=><div key={m.usn} className="flex flex-wrap justify-between gap-2 border-t border-zinc-100 py-3 text-sm"><span>{m.fullName} · {m.usn}</span><span className="text-amber-700">{m.riskTriggers?.join(' · ')}</span></div>):<p className="text-sm text-zinc-500">No at-risk rows were returned.</p>}</Panel>{(isHod||isSuperAdmin)&&<Panel title="Assign LG mentor" note="Map existing student USNs to an existing faculty user ID."><form className="grid gap-3 sm:grid-cols-3" onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const r=await api.post('/api/v1/hod/lg-mapping/assign',{lgFacultyId:f.get('lgFacultyId'),studentUsns:f.get('studentUsns').split(/[\s,]+/).filter(Boolean),department:f.get('department')});setResult(r.data);setError('');}catch(x){setError(x.response?.data?.error||x.message);}}}><label className="space-y-1.5 text-xs font-semibold">Faculty user ID<input name="lgFacultyId" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Department<input name="department" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Student USNs<input name="studentUsns" className={field} placeholder="Comma or space separated" required/></label><button className={button}>Assign mentor</button></form></Panel>}{(isHod||isSuperAdmin)&&<Panel title="Manage sub-roles" note="Assign role codes supported by the LG controller to an existing user."><form className="grid gap-3 sm:grid-cols-3" onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const r=await api.patch('/api/v1/hod/assign-subroles',{targetUserId:f.get('targetUserId'),subRoles:f.get('subRoles').split(/[\s,]+/).filter(Boolean)});setResult(r.data);setError('');}catch(x){setError(x.response?.data?.error||x.message);}}}><label className="space-y-1.5 text-xs font-semibold">Target user ID<input name="targetUserId" className={field} required/></label><label className="space-y-1.5 text-xs font-semibold">Sub-role codes<input name="subRoles" className={field} placeholder="CR, LG_COORDINATOR" required/></label><button className={button}>Assign sub-roles</button></form></Panel>}<Notice error={error} result={result}/></div>}
 
@@ -76,13 +579,14 @@ export default function ServicesView({ initialTool=null }) {
  if(activeTool==='provision-student')return <StudentProvisioningTool onBack={()=>setActiveTool(null)}/>;
  if(activeTool==='db-ledger')return <DbLedgerTool onBack={()=>setActiveTool(null)}/>;
  if(activeTool==='db-diagnostics')return <DbDiagnosticsTool onBack={()=>setActiveTool(null)}/>;
- const items=[{id:'venues',label:'Venue bookings',icon:Landmark,show:true},{id:'timetable',label:'Timetable & swaps',icon:CalendarDays,show:true},{id:'leave',label:'Leave requests',icon:FileText,show:true},{id:'academic',label:'Academic records',icon:GraduationCap,show:isFaculty||isHod||isSuperAdmin},{id:'mentorship',label:'Mentorship',icon:Users,show:isFaculty||isHod||isSuperAdmin},{id:'finance',label:'Finance & clearance',icon:Activity,show:true},{id:'vault',label:'Document vault',icon:ShieldCheck,show:true},{id:'provision',label:'Provisioning',icon:Users,show:isSuperAdmin||isHod||isAdmission},{id:'database',label:'Database tools',icon:Database,show:isSuperAdmin}].filter(x=>x.show);
+ const items=[{id:'venues',label:'Venue bookings',icon:Landmark,show:true},{id:'timetable',label:'Timetable & swaps',icon:CalendarDays,show:true},{id:'academic',label:'Academic & CIE',icon:GraduationCap,show:true},{id:'placements',label:'Placements',icon:Briefcase,show:true},{id:'leave',label:'Leave requests',icon:FileText,show:true},{id:'mentorship',label:'Mentorship',icon:Users,show:isFaculty||isHod||isSuperAdmin},{id:'finance',label:'Finance & clearance',icon:Activity,show:true},{id:'vault',label:'Document vault',icon:ShieldCheck,show:true},{id:'provision',label:'Provisioning',icon:Users,show:isSuperAdmin||isHod||isAdmission},{id:'database',label:'Database tools',icon:Database,show:isSuperAdmin}].filter(x=>x.show);
  const openProvision=(key)=>setActiveTool(key);
  return <div className="space-y-5"><header className="rounded-3xl bg-gradient-to-br from-[#1e1916] via-[#24232a] to-slate-900 p-6 text-white"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-300">Services</p><h1 className="mt-2 text-2xl font-bold">Institutional workflows</h1><p className="mt-2 max-w-2xl text-sm text-white/70">Choose an action available to your signed-in role. Each view is connected to the current backend API.</p></header><nav className="flex gap-2 overflow-x-auto pb-1">{items.map(x=><button key={x.id} onClick={()=>setCategory(x.id)} className={'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold '+(category===x.id?'bg-[#121214] text-white':'border border-[#EBEBEF] bg-white text-zinc-700')}><x.icon size={15}/>{x.label}</button>)}</nav>
  {category==='venues'&&<VenueWorkspace user={user} isSuperAdmin={isSuperAdmin} isHod={isHod} isPrincipal={user?.adminTier==='PRINCIPAL'||user?.subRoles?.includes?.('PRINCIPAL')||user?.sectionCode==='PRN'} isFaculty={isFaculty} isStudent={isStudent}/>}
  {category==='timetable'&&<TimetableWorkspace user={user} isHod={isHod} isSuperAdmin={isSuperAdmin} isFaculty={isFaculty}/>}
  {category==='leave'&&<LeaveWorkspace isStudent={isStudent} isFaculty={isFaculty}/>}
- {category==='academic'&&<AcademicWorkspace isFaculty={isFaculty} isHod={isHod} isSuperAdmin={isSuperAdmin}/>}
+ {category==='academic'&&<AcademicWorkspace user={user} isFaculty={isFaculty} isHod={isHod} isSuperAdmin={isSuperAdmin} isStudent={isStudent}/>}
+ {category==='placements'&&<PlacementWorkspace user={user} isSuperAdmin={isSuperAdmin} isStudent={isStudent}/>}
  {category==='mentorship'&&<PeopleWorkspace isFaculty={isFaculty} isHod={isHod} isSuperAdmin={isSuperAdmin}/>}
  {category==='finance'&&<FinanceWorkspace user={user} isFinance={isFinance} isSuperAdmin={isSuperAdmin} isStudent={isStudent}/>}
  {category==='vault'&&<VaultWorkspace user={user} isAdmission={isAdmission} isSuperAdmin={isSuperAdmin} isStudent={isStudent}/>}

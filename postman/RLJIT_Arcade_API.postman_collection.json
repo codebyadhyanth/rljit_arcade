@@ -1,0 +1,3587 @@
+{
+  "info": {
+    "_postman_id": "rljit-arcade-full-suite-2026",
+    "name": "RLJIT Arcade Backend - All Modules Test Suite",
+    "description": "Comprehensive API collection for RLJIT Arcade Backend covering RBAC, Authentication, Diagnostics, and Modules 1-6.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Setup & Diagnostics (System Bootstrap & Database Verification)",
+      "item": [
+        {
+          "name": "Server Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "```json\n  {\n    \"project\": \"RLJIT Arcade Backend\",\n    \"status\": \"online\",\n    \"version\": \"2.0.0\",\n    \"timestamp\": \"2026-11-09T22:00:00.000Z\",\n    \"endpoints\": {\n      \"documentation\": \"/postman_uri.md\",\n      \"dbDiagnostics\": \"/db:rljit_arcade/connect\",\n      \"dbStorageVerifier\": \"/api/v1/db/verify-storage\",\n      \"auth\": \"/api/v1/auth/login\"\n    }\n  }\n  ```"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ensure Database & Initialize All Core Tables",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/db:rljit_arcade/connect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "db:rljit_arcade",
+                "connect"
+              ]
+            },
+            "description": "* Auto-creates `rljit_arcade` database if not present.\n  * Initializes extensions (`pg_trgm`, `pgcrypto`), atomic sequence counter (`id_sequences`), core users and role tables (`student`, `faculty`, `admin`) with `user_id` foreign keys, and all 10 domain tables.\n  ```json\n  {\n    \"success\": true,\n    \"database\": \"rljit_arcade\",\n    \"status\": \"Connected & Initialized\",\n    \"tablesCreated\": [\"student\", \"faculty\", \"admin\"]\n  }\n  ```"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify or Initialize Specific Role Table",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/db:rljit_arcade:student/connect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "db:rljit_arcade:student",
+                "connect"
+              ]
+            },
+            "description": "* Creates or verifies the specified table schema.\n  ```json\n  {\n    \"success\": true,\n    \"database\": \"rljit_arcade\",\n    \"targetTable\": \"student\",\n    \"message\": \"Table verified/created and connected\"\n  }\n  ```\n  * **Error:** Returns `400 Bad Request` if role is not one of `['student', 'faculty', 'admin']`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Inspect Specific Role Table Status & Columns",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/db:rljit_arcade:student/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "db:rljit_arcade:student",
+                "status"
+              ]
+            },
+            "description": "* Queries `information_schema.columns` and `COUNT(*)` for that table.\n  ```json\n  {\n    \"success\": true,\n    \"database\": \"rljit_arcade\",\n    \"roleTable\": \"student\",\n    \"exists\": true,\n    \"rowCount\": 0,\n    \"columns\": [\n      \"id\",\n      \"user_id\",\n      \"usn\",\n      \"full_name\",\n      \"email\",\n      \"department\",\n      \"semester\",\n      \"section\",\n      \"entry_type\",\n      \"admission_quota\",\n      \"cgpa\",\n      \"parent_whatsapp_encrypted\",\n      \"lg_faculty_id\",\n      \"status\",\n      \"created_at\"\n    ]\n  }\n  ```"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Super Admin Initial Setup & Authority Provisioning",
+      "item": [
+        {
+          "name": "Bootstrap Super Admin (One-Time Execution)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-bootstrap-key",
+                "value": "{{bootstrapKey}}",
+                "type": "text"
+              },
+              {
+                "key": "x-idempotent",
+                "value": "true",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/bootstrap-super-admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "bootstrap-super-admin"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Atomically inserts into `users` (`base_role = 'ADMIN'`, `admin_tier = 'SUPER_ADMIN'`) and `admin` (`role_type = 'SUPER_ADMIN'`).\n  * Generates atomic username `RLSUPER001`.\n  * Returns `redirectUrl: \"/portal/super-admin/mastermind-home\"`.\n  * **Error (Subsequent Calls):** Returns `403 Forbidden: Super Admin has already been bootstrapped`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"fullName\": \"Mastermind Super Admin\",\n    \"email\": \"superadmin@rljit.ac.in\",\n    \"phone\": \"+919888877777\",\n    \"password\": \"p$4K9!vQ2#xM\"\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.environment.set('SUPER_ADMIN_JWT_TOKEN', jsonData.token);",
+                  "    pm.environment.set('PRINCIPAL_OR_SUPER_ADMIN_JWT_TOKEN', jsonData.token);",
+                  "    pm.environment.set('JWT_TOKEN', jsonData.token);",
+                  "}",
+                  "pm.test('Super Admin Bootstrap successful', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provision Admission Admin (By Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "x-idempotent",
+                "value": "true",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/super-admin/provision-authority",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "super-admin",
+                "provision-authority"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Generates atomic username `RLADM001`.\n  * Returns auto-generated strong temporary password and `redirectUrl: \"/portal/admission-admin/dashboard\"`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authorityType\": \"REGULAR_ADMIN\",\n  \"fullName\": \"Kiran Kumar\",\n  \"email\": \"admission.admin@rljit.ac.in\",\n  \"phone\": \"+919845011223\",\n  \"baseRole\": \"ADMIN\",\n  \"adminTier\": \"REGULAR_ADMIN\",\n  \"sectionCode\": \"ADM\",\n  \"subRoles\": [\n    \"ADMISSION_OFFICER\"\n  ],\n  \"permissions\": [\n    \"student:create\",\n    \"student:read\",\n    \"student:update\",\n    \"vault:upload\",\n    \"vault:verify\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.environment.set('ADMISSION_ADMIN_JWT_TOKEN', jsonData.token);",
+                  "    pm.environment.set('ADMISSION_ADMIN_JWT', jsonData.token);",
+                  "    pm.environment.set('ADMISSION_ADMIN_OR_SUPER_ADMIN_JWT', jsonData.token);",
+                  "}",
+                  "pm.test('Provision successful', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provision Department HOD Admin (By Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "x-idempotent",
+                "value": "true",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/super-admin/provision-authority",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "super-admin",
+                "provision-authority"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Generates atomic username `RLHODCS001`.\n  * Returns auto-generated strong temporary password and `redirectUrl: \"/portal/hod-admin/dashboard\"`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authorityType\": \"HOD\",\n  \"fullName\": \"Dr. Ramesh Sharma\",\n  \"email\": \"hod.cs@rljit.ac.in\",\n  \"phone\": \"+919845033445\",\n  \"baseRole\": \"ADMIN\",\n  \"adminTier\": \"HOD_ADMIN\",\n  \"department\": \"CS\",\n  \"subRoles\": [\n    \"HOD\",\n    \"DEPT_HEAD\"\n  ],\n  \"permissions\": [\n    \"student:create\",\n    \"faculty:read\",\n    \"timetable:manage\",\n    \"lg:assign\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.environment.set('HOD_CS_JWT_TOKEN', jsonData.token);",
+                  "    pm.environment.set('HOD_JWT_TOKEN', jsonData.token);",
+                  "    pm.environment.set('HOD_OR_SUPER_ADMIN_JWT', jsonData.token);",
+                  "}",
+                  "pm.test('Provision successful', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provision Faculty (By Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "x-idempotent",
+                "value": "true",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/super-admin/provision-authority",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "super-admin",
+                "provision-authority"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Generates atomic username `RLFACCS001`.\n  * Atomically creates dual record in `users` and `faculty` tables.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authorityType\": \"FACULTY\",\n  \"fullName\": \"Prof. Sumanth Rao\",\n  \"email\": \"sumanth.cs@rljit.ac.in\",\n  \"phone\": \"+919845077889\",\n  \"baseRole\": \"FACULTY\",\n  \"department\": \"CS\",\n  \"subRoles\": [\n    \"MENTOR\",\n    \"CLASS_ADVISOR\"\n  ],\n  \"permissions\": [\n    \"attendance:commit\",\n    \"marks:commit\",\n    \"timetable:swap\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.environment.set('FACULTY_JWT_TOKEN', jsonData.token);",
+                  "    pm.environment.set('FACULTY_OR_HOD_JWT', jsonData.token);",
+                  "    pm.environment.set('STUDENT_OR_FACULTY_JWT_TOKEN', jsonData.token);",
+                  "}",
+                  "pm.test('Provision successful', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Student Provisioning Portals",
+      "item": [
+        {
+          "name": "Student Provisioning via Admission Admin Portal (Global Department Access)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ADMISSION_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "x-idempotent",
+                "value": "true",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/portals/provision-student",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "portals",
+                "provision-student"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Generates atomic VTU-pattern USN: `1RL26CS001`.\n  * Atomically persists in `users` and `student` linked via `user_id`.\n  * Returns auto-generated password and `redirectUrl: \"/portal/student/dashboard\"`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"fullName\": \"Aarav Patel\",\n    \"email\": \"aarav.patel@student.rljit.ac.in\",\n    \"phone\": \"+919811223344\",\n    \"department\": \"CS\",\n    \"admissionYear\": 2026,\n    \"entryType\": \"REGULAR\",\n    \"semester\": 1,\n    \"section\": \"A\",\n    \"admissionQuota\": \"CET\"\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.environment.set('STUDENT_JWT_TOKEN', jsonData.token);",
+                  "    pm.environment.set('STUDENT_OR_FACULTY_JWT_TOKEN', jsonData.token);",
+                  "}",
+                  "pm.test('Provision successful', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Student Provisioning via HOD Portal (Department-Scope Enforced)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{HOD_CS_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "x-idempotent",
+                "value": "true",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/portals/provision-student",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "portals",
+                "provision-student"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Generates atomic lateral USN: `1RL26CS401`.\n  * **Department Scope Enforcement:** If `department` in payload is `EC` while HOD's token has `department: \"CS\"`, returns `403 Department Scope Violation: HOD of CS cannot provision students in EC`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"fullName\": \"Bhavana Suresh\",\n    \"email\": \"bhavana.suresh@student.rljit.ac.in\",\n    \"phone\": \"+919822334455\",\n    \"department\": \"CS\",\n    \"admissionYear\": 2026,\n    \"entryType\": \"LATERAL\",\n    \"semester\": 3,\n    \"section\": \"B\",\n    \"admissionQuota\": \"COMEDK\"\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.environment.set('STUDENT_JWT_TOKEN', jsonData.token);",
+                  "    pm.environment.set('STUDENT_OR_FACULTY_JWT_TOKEN', jsonData.token);",
+                  "}",
+                  "pm.test('Provision successful', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Authentication, Session Revocation & Fast Search",
+      "item": [
+        {
+          "name": "User Login (Dual-Table Persistence & Audit Receipt)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Verifies Argon2id password hash against PostgreSQL `users`.\n  * Increments `login_count` and updates `last_login_at`.\n  * Embeds `tokenVersion` in the JWT payload for revocation support.\n  * Returns `auditReceipt` with PostgreSQL transaction ID (`pg_xmin`) and physical disk tuple (`pg_ctid`).\n  ```json\n  {\n    \"success\": true,\n    \"message\": \"Login successful\",\n    \"token\": \"{{JWT_STRING}}\",\n    \"user\": {\n      \"id\": \"e2f1a94b-1234-4567-89ab-cdef01234567\",\n      \"username\": \"RLSUPER001\",\n      \"fullName\": \"Mastermind Super Admin\",\n      \"email\": \"superadmin@rljit.ac.in\",\n      \"baseRole\": \"ADMIN\",\n      \"adminTier\": \"SUPER_ADMIN\"\n    },\n    \"auditReceipt\": {\n      \"loginCount\": 1,\n      \"lastLoginAt\": \"2026-11-09T22:10:00.000Z\",\n      \"pgTransactionId\": \"852\",\n      \"physicalDiskTuple\": \"(0,1)\",\n      \"persistedToDatabase\": true\n    },\n    \"redirectUrl\": \"/portal/super-admin/mastermind-home\"\n  }\n  ```",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"RLSUPER001\",\n    \"password\": \"p$4K9!vQ2#xM\"\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();\nif (jsonData.token) {\n    var role = (jsonData.user && (jsonData.user.role || jsonData.user.baseRole)) || '';\n    if (role.toUpperCase().indexOf('SUPER_ADMIN') !== -1) {\n        pm.environment.set('SUPER_ADMIN_JWT_TOKEN', jsonData.token);\n    } else if (role.toUpperCase().indexOf('FACULTY') !== -1) {\n        pm.environment.set('FACULTY_JWT_TOKEN', jsonData.token);\n    } else if (role.toUpperCase().indexOf('STUDENT') !== -1) {\n        pm.environment.set('STUDENT_JWT_TOKEN', jsonData.token);\n    } else if (role.toUpperCase().indexOf('HOD') !== -1) {\n        pm.environment.set('HOD_JWT_TOKEN', jsonData.token);\n    }\n    pm.environment.set('JWT_TOKEN', jsonData.token);\n}\npm.test('Status code is 200 or 201', function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201]);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "User Logout (Immediate JWT Invalidation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Atomically increments `token_version = token_version + 1` in `users`.\n  * Subsequent requests using the old JWT immediately fail with `401 Session revoked`.\n  ```json\n  {\n    \"success\": true,\n    \"message\": \"Logged out successfully. Session revoked across all devices.\",\n    \"newTokenVersion\": 2\n  }\n  ```"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fast Search (Exact Match via HMAC Blind Index)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/search?q=aarav.patel@student.rljit.ac.in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "aarav.patel@student.rljit.ac.in"
+                }
+              ]
+            },
+            "description": "* **Status:** `200 OK`\n  * Computes HMAC-SHA256 of `q` and executes an $O(\\log N)$ B-Tree index lookup on `email_bidx`. Decrypts PII in-memory before returning."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fast Search (Fuzzy / Trigram Similarity: USN or Username)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/search?q=1RL26CS",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "1RL26CS"
+                }
+              ]
+            },
+            "description": "* **Status:** `200 OK`\n  * Employs PostgreSQL `pg_trgm` GIN index with `similarity(username, $1)` ranking for rapid lookup on partial USNs or faculty IDs."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. PostgreSQL Live Database Storage Verifier (Diagnostic)",
+      "item": [
+        {
+          "name": "Postman Database Storage & Persistence Inspector (All 11 Tables)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/db/verify-storage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "db",
+                "verify-storage"
+              ],
+              "query": []
+            },
+            "description": "* Queries live `COUNT(*)` across all 11 core and domain tables.\n  * Returns latest 20 users LEFT JOINed with `admin`, `faculty`, and `student` linked via `user_id`.\n  * Shows raw database proofs (`pg_xmin`, `pg_ctid`, password hash prefix, AES ciphertexts, and HMAC blind indexes).\n  ```json\n  {\n    \"success\": true,\n    \"database\": \"rljit_arcade\",\n    \"liveTableCounts\": {\n      \"users\": 4,\n      \"admin\": 2,\n      \"faculty\": 1,\n      \"student\": 1,\n      \"id_sequences\": 4,\n      \"timetables\": 0,\n      \"timetable_swaps\": 0,\n      \"academic_records\": 0,\n      \"record_unlock_requests\": 0,\n      \"student_documents\": 0,\n      \"finance_ledgers\": 0\n    },\n    \"recordsCount\": 4,\n    \"records\": [...]\n  }\n  ```"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Module 1: Unified Profile & Role Dashboard",
+      "item": [
+        {
+          "name": "Get Decrypted Current User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/profile/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "profile",
+                "me"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Decrypts AES-256-GCM encrypted PII (`fullName`, `email`, `phone`).\n  * If user is a `STUDENT`, embeds academic status, quota, CGPA, and assigned Local Guardian name.\n  * If user is `FACULTY`, embeds designation, cabin room, and LG coordinator status.\n  ```json\n  {\n    \"success\": true,\n    \"profile\": {\n      \"id\": \"e2f1a94b-1234-4567-89ab-cdef01234567\",\n      \"username\": \"1RL26CS001\",\n      \"fullName\": \"Aarav Patel\",\n      \"email\": \"aarav.patel@student.rljit.ac.in\",\n      \"phone\": \"+919811223344\",\n      \"baseRole\": \"STUDENT\",\n      \"adminTier\": null,\n      \"department\": \"CS\",\n      \"semester\": 1,\n      \"entryType\": \"REGULAR\",\n      \"studentDetails\": {\n        \"usn\": \"1RL26CS001\",\n        \"section\": \"A\",\n        \"admissionQuota\": \"CET\",\n        \"cgpa\": 0,\n        \"status\": \"ACTIVE\",\n        \"lgFaculty\": \"Prof. Sumanth Rao\"\n      }\n    }\n  }\n  ```"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Dynamic Role-Based Dashboard Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard",
+                "metrics"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * **STUDENT:** Computes real-time attendance percentage, CIE average marks, pending fee dues, and hall ticket eligibility.\n  * **FACULTY:** Computes total assigned mentees, count of at-risk students, pending leave requests, and pending swap requests.\n  * **HOD_ADMIN:** Computes department student count, faculty count, at-risk mentee count, pending post-EOD unlock requests, and pending class swaps.\n  * **SUPER_ADMIN:** Returns institutional-wide KPI aggregates across all departments."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Module 2: Master Timetable & Class Swap Engine",
+      "item": [
+        {
+          "name": "Master Timetable Setup (HOD or Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{HOD_OR_SUPER_ADMIN_JWT}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/timetable/master-setup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "timetable",
+                "master-setup"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Upserts slots into `timetables` using `ON CONFLICT (department, semester, section, day_of_week, period_no) DO UPDATE`.\n  * HOD department scope enforced.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"department\": \"CS\",\n  \"semester\": 3,\n  \"section\": \"A\",\n  \"slots\": [\n    {\n      \"day_of_week\": 1,\n      \"period_no\": 1,\n      \"subject_code\": \"BCS301\",\n      \"faculty_id\": \"4fd94508-edfa-445a-a909-ebf85932c02f\",\n      \"room_no\": \"LH-201\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Daily Schedule View with Approved Swaps Overlay",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/timetable/daily-view?dept=CS&sem=3&sec=A&date=2026-11-10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "timetable",
+                "daily-view"
+              ],
+              "query": [
+                {
+                  "key": "dept",
+                  "value": "CS"
+                },
+                {
+                  "key": "sem",
+                  "value": "3"
+                },
+                {
+                  "key": "sec",
+                  "value": "A"
+                },
+                {
+                  "key": "date",
+                  "value": "2026-11-10"
+                }
+              ]
+            },
+            "description": "* **Status:** `200 OK`\n  * Automatically calculates day-of-week (`EXTRACT(ISODOW FROM date)`).\n  * Overlays any `APPROVED` swaps from `timetable_swaps` for that exact date, flagging `isSwapped: true` and updating `faculty_username` and `subject_code`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request Class Swap (By Scheduled Faculty)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/timetable/swap-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "timetable",
+                "swap-request"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Verifies caller is either the assigned faculty or HOD.\n  * Inserts swap with status `PENDING`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timetable_id\": \"11111111-2222-3333-4444-555555555555\",\n  \"swap_date\": \"2026-11-10\",\n  \"target_faculty_id\": \"000e54b9-f5c6-4777-850c-ebc73a73766f\",\n  \"new_subject_code\": \"BCS304\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve or Reject Class Swap (Target Faculty or HOD)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TARGET_FACULTY_OR_HOD_JWT}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/timetable/swap-approve/22222222-3333-4444-5555-666666666666",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "timetable",
+                "swap-approve",
+                "22222222-3333-4444-5555-666666666666"
+              ]
+            },
+            "description": "* **Status:** `200 OK`\n  * Returns updated swap and `notificationPayload` containing affected class, date, period, and subject.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Timetable Slots (By Scope)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/timetable?department=CSE&semester=3&section=A",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "timetable"
+              ],
+              "query": [
+                {
+                  "key": "department",
+                  "value": "CSE"
+                },
+                {
+                  "key": "semester",
+                  "value": "3"
+                },
+                {
+                  "key": "section",
+                  "value": "A"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Manual Timetable Slot Creation (HOD / Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{HOD_OR_SUPER_ADMIN_JWT}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"department\": \"CSE\",\n  \"semester\": 3,\n  \"section\": \"A\",\n  \"day_of_week\": 1,\n  \"period_no\": 1,\n  \"start_time\": \"09:00 AM\",\n  \"end_time\": \"10:00 AM\",\n  \"subject_code\": \"BCS301\",\n  \"subject_name\": \"Data Structures\",\n  \"room_no\": \"CS-101\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/timetable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "timetable"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Live Slot Swap Request / Approval",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"REQUEST\",\n  \"swap_status\": \"PENDING\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/timetable/{{timetableSlotId}}/swap",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "timetable",
+                "{{timetableSlotId}}",
+                "swap"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Module 3: OCR Attendance/CIE + EOD Lock + Dual-Approval Unlock",
+      "item": [
+        {
+          "name": "OCR Upload & Draft Extraction (Handwritten Sheet)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/faculty/ocr/extract-draft",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "faculty",
+                "ocr",
+                "extract-draft"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Saves raw sheet in `uploads/ocr/` with UUID filename.\n  * Queries database students for match candidates and outputs structured draft with confidence scores.\n  * Saves draft batch in `ocr_staging_batches` with status `DRAFT`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "sheet",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "recordType",
+                  "value": "ATTENDANCE",
+                  "type": "text"
+                },
+                {
+                  "key": "department",
+                  "value": "CS",
+                  "type": "text"
+                },
+                {
+                  "key": "semester",
+                  "value": "3",
+                  "type": "text"
+                },
+                {
+                  "key": "section",
+                  "value": "A",
+                  "type": "text"
+                },
+                {
+                  "key": "subjectCode",
+                  "value": "BCS301",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Commit Reviewed Academic Records (Automatic EOD Lock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/faculty/academic-record/commit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "faculty",
+                "academic-record",
+                "commit"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Inserts records with `locked_after = session_date + 23:59:59`.\n  * Updates `ocr_staging_batches` to `COMMITTED`.\n  * Returns `dbReceipt` with transaction ID and tuple.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"batchId\": 1,\n    \"recordType\": \"ATTENDANCE\",\n    \"department\": \"CS\",\n    \"semester\": 3,\n    \"section\": \"A\",\n    \"subjectCode\": \"BCS301\",\n    \"sessionDate\": \"2026-11-10\",\n    \"periodNo\": 1,\n    \"records\": [\n      { \"studentUsn\": \"1RL26CS001\", \"attendanceStatus\": \"P\" },\n      { \"studentUsn\": \"1RL26CS002\", \"attendanceStatus\": \"A\" },\n      { \"studentUsn\": \"1RL26CS401\", \"attendanceStatus\": \"OD_PRESENT\" }\n    ]\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "EOD Edit within Active Window (Faculty)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/faculty/academic-record/33333333-4444-5555-6666-777777777777/eod-edit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "faculty",
+                "academic-record",
+                "33333333-4444-5555-6666-777777777777",
+                "eod-edit"
+              ]
+            },
+            "description": "* **Status:** `200 OK` (if current time $\\le$ `locked_after`).\n  * **Error (After 23:59:59):** Returns `423 Locked: EOD window expired. Submit an Unlock Request to HOD & Principal.`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attendanceStatus\": \"P\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Post-EOD Unlock Request (Faculty Justification)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/faculty/unlock-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "faculty",
+                "unlock-request"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Captures `current_val`, `proposed_val`, and justification reason.\n  * Sets `hod_status = 'PENDING'` and `principal_status = 'PENDING'`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"academicRecordId\": \"33333333-4444-5555-6666-777777777777\",\n  \"proposedVal\": \"P\",\n  \"reason\": \"Student produced valid medical on-duty certificate signed by Sports Director.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stage 1 Approval: HOD Unlock Review",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{HOD_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hod/unlock-approve/44444444-5555-6666-7777-888888888888",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "hod",
+                "unlock-approve",
+                "44444444-5555-6666-7777-888888888888"
+              ]
+            },
+            "description": "* **Status:** `200 OK`\n  * Updates `hod_status = 'APPROVED'`. Department scope strictly enforced.\n  * Awaits Principal review.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stage 2 Dual-Approval: Principal / Super Admin Unlock",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/principal/unlock-approve/44444444-5555-6666-7777-888888888888",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "principal",
+                "unlock-approve",
+                "44444444-5555-6666-7777-888888888888"
+              ]
+            },
+            "description": "* **Status:** `200 OK`\n  * Verifies HOD has already approved (otherwise returns `400 Prerequisite Violation`).\n  * Sets `principal_status = 'APPROVED'` and flips `academic_records.is_unlocked_override = TRUE`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Execute Single-Use Unlocked Update (Immutable Audit Log)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/faculty/academic-record/execute-unlocked/44444444-5555-6666-7777-888888888888",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "faculty",
+                "academic-record",
+                "execute-unlocked",
+                "44444444-5555-6666-7777-888888888888"
+              ]
+            },
+            "description": "* **Status:** `200 OK`\n  * Applies proposed change to `academic_records`.\n  * Resets `is_unlocked_override = FALSE` (single-use consumption).\n  * Writes immutable record into `academic_audit_logs`.\n  * **Conflict:** Subsequent calls return `409 Conflict: This unlock request has already been consumed`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bulk Mark Manual Attendance (Faculty)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"department\": \"CSE\",\n  \"semester\": 3,\n  \"section\": \"A\",\n  \"subject_code\": \"BCS301\",\n  \"period_no\": 1,\n  \"attendance_date\": \"2026-11-24\",\n  \"records\": [\n    {\n      \"student_id\": \"{{studentUsn}}\",\n      \"status\": \"PRESENT\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/attendance/manual",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "attendance",
+                "manual"
+              ]
+            }
+          }
+        },
+        {
+          "name": "View Student Live Attendance Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/attendance/student/{{studentUsn}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "attendance",
+                "student",
+                "{{studentUsn}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "View Section Live Attendance Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/attendance/section?department=CSE&semester=3&section=A",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "attendance",
+                "section"
+              ],
+              "query": [
+                {
+                  "key": "department",
+                  "value": "CSE"
+                },
+                {
+                  "key": "semester",
+                  "value": "3"
+                },
+                {
+                  "key": "section",
+                  "value": "A"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upsert Manual CIE Marks (Faculty)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"student_id\": \"{{studentUsn}}\",\n  \"department\": \"CSE\",\n  \"semester\": 3,\n  \"subject_code\": \"BCS301\",\n  \"subject_name\": \"Data Structures\",\n  \"cie1_marks\": 25,\n  \"cie2_marks\": 28,\n  \"cie3_marks\": 27,\n  \"assignment_marks\": 10,\n  \"max_marks\": 50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cie/manual",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cie",
+                "manual"
+              ]
+            }
+          }
+        },
+        {
+          "name": "View Student CIE Scorecards",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cie/student/{{studentUsn}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cie",
+                "student",
+                "{{studentUsn}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "View Section CIE Marks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cie/section?department=CSE&semester=3&subject_code=BCS301",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cie",
+                "section"
+              ],
+              "query": [
+                {
+                  "key": "department",
+                  "value": "CSE"
+                },
+                {
+                  "key": "semester",
+                  "value": "3"
+                },
+                {
+                  "key": "subject_code",
+                  "value": "BCS301"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Module 4: LG Mentorship, At-Risk Radar & Leave Lifecycle",
+      "item": [
+        {
+          "name": "Bulk Assign Students to Local Guardian Faculty (HOD)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{HOD_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hod/lg-mapping/assign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "hod",
+                "lg-mapping",
+                "assign"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Maps student records in `student` to the designated faculty mentor.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lgFacultyId\": \"4fd94508-edfa-445a-a909-ebf85932c02f\",\n  \"studentUsns\": [\n    \"1RL26CS001\",\n    \"1RL26CS401\"\n  ],\n  \"department\": \"CS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assign Institutional Sub-Roles (HOD)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{HOD_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hod/assign-subroles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "hod",
+                "assign-subroles"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Updates `sub_roles` in `users` and sets `is_lg_coordinator = TRUE` in `faculty`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": \"4fd94508-edfa-445a-a909-ebf85932c02f\",\n  \"subRoles\": [\n    \"LG_COORDINATOR\",\n    \"CIE_COORDINATOR\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "View Assigned LG Mentees (Faculty)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/faculty/lg-mentees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "faculty",
+                "lg-mentees"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Returns mentee profiles, CGPA, real-time calculated attendance percentage, pending fee dues, and decrypted parent WhatsApp numbers."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Early-Warning At-Risk Radar (Faculty / HOD)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_OR_HOD_JWT}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/faculty/lg-radar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "faculty",
+                "lg-radar"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Identifies students meeting any of the 3 critical institutional risk conditions:\n    1. Attendance $< 75\\%$\n    2. Average CIE Marks $< 12/30$ ($< 40\\%$)\n    3. Pending financial dues $> 0$\n  * Tagged with exact triggers (e.g. `['ATTENDANCE_CRITICAL (< 75%)', 'FINANCIAL_DUES_PENDING']`)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Student Leave Application (Student)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{STUDENT_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/student/leave-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "student",
+                "leave-request"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Automatically directs leave request to the student's assigned `lg_faculty_id`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"fromDate\": \"2026-11-12\",\n    \"toDate\": \"2026-11-14\",\n    \"reason\": \"Attending State Level Technical Hackathon\"\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve or Reject Student Leave (LG Faculty)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/faculty/leave-approve/ee8e1db6-02c2-46d0-a348-cda28f22f5c5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "faculty",
+                "leave-approve",
+                "ee8e1db6-02c2-46d0-a348-cda28f22f5c5"
+              ]
+            },
+            "description": "* **Status:** `200 OK`\n  * Sets status to `APPROVED` and records `parent_notified = TRUE` (dispatched via WhatsApp gateway integration).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Module 5: Document Vault, Finance Ledgers & Automated No-Dues",
+      "item": [
+        {
+          "name": "Upload Document to Student Vault (Admission Section Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ADMISSION_ADMIN_OR_SUPER_ADMIN_JWT}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admissions/documents/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admissions",
+                "documents",
+                "upload"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Stores file securely in `uploads/vault/` with UUID filename.\n  * Inserts record into `student_documents` with `verification_status: 'PENDING_REVIEW'` and `custody_status: 'SUBMITTED_TO_ADMISSION_DEPT'`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "studentUsn",
+                  "value": "1RL26CS001",
+                  "type": "text"
+                },
+                {
+                  "key": "docType",
+                  "value": "10TH_MARKS_CARD",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Physical Document & Update Custody (Admission Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ADMISSION_ADMIN_JWT}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admissions/documents/55555555-6666-7777-8888-999999999999/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admissions",
+                "documents",
+                "55555555-6666-7777-8888-999999999999",
+                "verify"
+              ]
+            },
+            "description": "* **Status:** `200 OK`\n  * Validates against allowed statuses: `['PENDING_REVIEW', 'VERIFIED', 'REJECTED']` and custody: `['WITH_STUDENT', 'SUBMITTED_TO_ADMISSION_DEPT', 'RETURNED_TO_STUDENT']`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationStatus\": \"VERIFIED\",\n  \"custodyStatus\": \"SUBMITTED_TO_ADMISSION_DEPT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "View Student Document Vault (Admission Admin / Student)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admissions/vault/1RL26CS001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admissions",
+                "vault",
+                "1RL26CS001"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Returns inventory of all submitted certificates, file paths, verification status, and physical custody status."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Impose Financial Ledger Obligation (Finance Section Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FINANCE_ADMIN_JWT}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/finance/ledger/charge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "finance",
+                "ledger",
+                "charge"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `201 Created`\n  * Requires user to have `sectionCode: 'ACC'` or Super Admin tier.\n  * Categories: `['TUITION_FEE', 'EXAM_FEE', 'MISC_FEE', 'FINE']`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"studentUsn\": \"1RL26CS001\",\n    \"category\": \"TUITION_FEE\",\n    \"title\": \"Semester 1 Academic Tuition & Laboratory Fee\",\n    \"totalAmount\": 75000.00,\n    \"dueDate\": \"2026-12-15\"\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Record Student Fee Payment (Finance Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FINANCE_ADMIN_JWT}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/finance/ledger/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "finance",
+                "ledger",
+                "pay"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Reconciles parent `finance_ledgers` item (`PAID` or `PARTIAL`).\n  * Creates immutable audit record in `finance_transactions` with `ref_no_encrypted` (AES-256-GCM).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ledgerId\": \"66666666-7777-8888-9999-000000000000\",\n  \"amountPaid\": 75000.0,\n  \"paymentMode\": \"ONLINE_NEFT\",\n  \"referenceNo\": \"AXISN20261109000123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "View Student Fee Statement & Ledger (Finance / Student)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/finance/ledger/1RL26CS001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "finance",
+                "ledger",
+                "1RL26CS001"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Computes total billed, total paid, and outstanding dues balance.\n  * Decrypts payment reference numbers in transaction history."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Automated No-Dues & Hall Ticket Clearance Engine (4 Pillars)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/student/clearance-status/1RL26CS001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "student",
+                "clearance-status",
+                "1RL26CS001"
+              ],
+              "query": []
+            },
+            "description": "* **Status:** `200 OK`\n  * Evaluates the **4 Pillars of Institutional Clearance**:\n    1. **Attendance Clearance:** Attendance $\\ge 85.0\\%$\n    2. **Academic CIE Clearance:** Average CIE marks $\\ge 40\\%$ (i.e. $\\ge 12.0/30$)\n    3. **Financial Clearance:** Outstanding fees and fines $= 0$\n    4. **Admission Document Vault Clearance:** All uploaded certificates marked `VERIFIED`\n  ```json\n  {\n    \"success\": true,\n    \"studentUsn\": \"1RL26CS001\",\n    \"clearance\": {\n      \"attendanceClear\": true,\n      \"attendancePercentage\": 92.5,\n      \"cieClear\": true,\n      \"avgCieMarks\": 24.5,\n      \"financeClear\": true,\n      \"outstandingDues\": 0,\n      \"documentsClear\": true,\n      \"unverifiedDocumentsCount\": 0,\n      \"overallHallTicketEligible\": true\n    },\n    \"statusSummary\": \"APPROVED: Student is 100% eligible for Semester End Examination Hall Ticket generation\"\n  }\n  ```"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. Module 6: Master Venue Booking & Multi-Stage Approval Engine",
+      "item": [
+        {
+          "name": "1. Create a Campus Venue (Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues"
+              ],
+              "query": []
+            },
+            "description": "Provisions a new physical campus venue.\n\n**Method:** `POST`\n**Endpoint:** `/api/v1/venues`\n**Auth:** Super Admin Bearer Token (`{{SUPER_ADMIN_JWT_TOKEN}}`)\n**Payload:** `name`, `type` (e.g., `AUDITORIUM`, `SEMINAR_HALL`), `department`, `location_details`, `capacity`, `facilities` (array), `is_active` (boolean).\n**Expected Response (`201 Created`):** Returns confirmation message and the created venue object with assigned UUID and timestamps.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Sir M. Visvesvaraya Auditorium\",\n    \"type\": \"AUDITORIUM\",\n    \"department\": \"CENTRAL\",\n    \"location_details\": \"Administrative Block, Ground Floor\",\n    \"capacity\": 600,\n    \"facilities\": [\"Full Stage Lighting\", \"JBL 5.1 PA System\", \"Dual HD Projectors\", \"Central AC\", \"Green Rooms\"],\n    \"is_active\": true\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. List Active Campus Venues",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues?type=AUDITORIUM&min_capacity=200",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "AUDITORIUM"
+                },
+                {
+                  "key": "min_capacity",
+                  "value": "200"
+                }
+              ]
+            },
+            "description": "Retrieves a filtered catalog of active campus venues matching query parameters.\n\n**Method:** `GET`\n**Endpoint:** `/api/v1/venues?type=AUDITORIUM&min_capacity=200`\n**Auth:** Bearer Token (`{{JWT_TOKEN}}`)\n**Query Parameters:** `type` (e.g., `AUDITORIUM`), `min_capacity` (e.g., `200`).\n**Expected Response (`200 OK`):** Returns list count and array of venue objects matching filter criteria."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Update Venue Details (Super Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/7d9ecb3b-1106-465f-8ea8-970d52c90e47",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "7d9ecb3b-1106-465f-8ea8-970d52c90e47"
+              ],
+              "query": []
+            },
+            "description": "Updates configuration details, capacity, or facilities for an existing venue.\n\n**Method:** `PATCH`\n**Endpoint:** `/api/v1/venues/:id`\n**Auth:** Super Admin Bearer Token (`{{SUPER_ADMIN_JWT_TOKEN}}`)\n**Payload:** `capacity`, `facilities` (array of facility tags).\n**Expected Response (`200 OK`):** Returns updated venue object with new attributes and `updated_at` timestamp.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"capacity\": 650,\n    \"facilities\": [\"Full Stage Lighting\", \"JBL 5.1 PA System\", \"Dual HD Projectors\", \"Central AC\", \"VIP Lounge\"]\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Check Slot Availability (Available vs Occupied)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/availability?venue_id=7d9ecb3b-1106-465f-8ea8-970d52c90e47&start_time=2026-11-20T10:00:00Z&end_time=2026-11-20T13:00:00Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "venue_id",
+                  "value": "7d9ecb3b-1106-465f-8ea8-970d52c90e47"
+                },
+                {
+                  "key": "start_time",
+                  "value": "2026-11-20T10:00:00Z"
+                },
+                {
+                  "key": "end_time",
+                  "value": "2026-11-20T13:00:00Z"
+                }
+              ]
+            },
+            "description": "Checks real-time availability of a venue for a specified time window.\n\n**Method:** `GET`\n**Endpoint:** `/api/v1/venues/availability?venue_id=...&start_time=...&end_time=...`\n**Auth:** Bearer Token (`{{JWT_TOKEN}}`)\n**Query Parameters:** `venue_id`, `start_time` (ISO 8601), `end_time` (ISO 8601).\n**Expected Response (`200 OK`):**\n- If Available: `is_available: true`, message `Venue is available for booking.`\n- If Occupied: `is_available: false`, message `Place already occupied... kindly look for another one.`, with occupying booking details and coordinator contact."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Initiate a Venue Booking Request (Student / Faculty)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{STUDENT_OR_FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings"
+              ],
+              "query": []
+            },
+            "description": "Submits a new venue booking request initiating the multi-stage approval workflow.\n\n**Method:** `POST`\n**Endpoint:** `/api/v1/venues/bookings`\n**Auth:** Student or Faculty Bearer Token (`{{STUDENT_OR_FACULTY_JWT_TOKEN}}`)\n**Payload:** `venue_id`, `event_title`, `purpose`, `start_time`, `end_time`, `expected_attendees`, `coordinator_id`, `equipment_needed` (array).\n**Expected Responses:**\n- `201 Created`: Returns booking code (e.g. `VB-2026-0001`), initial status `PENDING_HOD`, and booking payload.\n- `409 Conflict`: Double-booking overlap error triggered by PostgreSQL `btree_gist` exclusion constraint.\n- `403 Forbidden`: Cooling-off error if user recently cancelled this venue within the 24-hour penalty window.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"venue_id\": \"7d9ecb3b-1106-465f-8ea8-970d52c90e47\",\n  \"event_title\": \"Inter-College Robotics Expo\",\n  \"purpose\": \"Showcase student robotics projects and competitions\",\n  \"expected_headcount\": 250,\n  \"event_start_time\": \"2026-11-26T09:00:00Z\",\n  \"event_end_time\": \"2026-11-26T13:00:00Z\",\n  \"coordinator_id\": \"4fd94508-edfa-445a-a909-ebf85932c02f\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. List Bookings Scoped by Role",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings?status=PENDING_HOD",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING_HOD"
+                }
+              ]
+            },
+            "description": "Retrieves venue booking requests filtered by approval status and scoped to caller's role.\n\n**Method:** `GET`\n**Endpoint:** `/api/v1/venues/bookings?status=PENDING_HOD`\n**Auth:** Bearer Token (`{{JWT_TOKEN}}`)\n**Query Parameters:** `status` (e.g. `PENDING_HOD`).\n**Expected Response (`200 OK`):** Returns count and array of booking summaries matching filter criteria."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Get Full Rich Audit Payload & Timeline Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings/9a38ff12-32ba-4cd4-b912-8812cfa77189",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings",
+                "9a38ff12-32ba-4cd4-b912-8812cfa77189"
+              ],
+              "query": []
+            },
+            "description": "Fetches full booking details, venue specifications, initiator info, coordinator info, and chronological timeline audit trail.\n\n**Method:** `GET`\n**Endpoint:** `/api/v1/venues/bookings/:id`\n**Auth:** Bearer Token (`{{JWT_TOKEN}}`)\n**Expected Response (`200 OK`):** Returns comprehensive booking record including initiator contact, coordinator contact, equipment requirements, and ordered timeline approval logs."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. HOD Review (Approve, Reject, or Partial Terms)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{HOD_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings/9a38ff12-32ba-4cd4-b912-8812cfa77189/hod-review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings",
+                "9a38ff12-32ba-4cd4-b912-8812cfa77189",
+                "hod-review"
+              ]
+            },
+            "description": "Submits Department HOD review decision on a pending booking.\n\n**Method:** `PATCH`\n**Endpoint:** `/api/v1/venues/bookings/:id/hod-review`\n**Auth:** Department HOD Bearer Token (`{{HOD_JWT_TOKEN}}`)\n**Payload Options:**\n- Approve: `{ \"action\": \"APPROVE\", \"remarks\": \"...\" }` (escalates to Principal)\n- Partial: `{ \"action\": \"PARTIAL\", \"terms_and_conditions\": [...] }` (requires Coordinator agreement)\n- Reject: `{ \"action\": \"REJECT\", \"rejection_reason\": \"...\" }`\n**Expected Response (`200 OK`):** Returns updated booking status and timeline entry.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"APPROVE\",\n  \"terms_and_conditions\": {\n    \"cleanup\": \"Mandatory auditorium cleaning by 2 PM\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Coordinator Terms Negotiation (Agree or Counter-Proposal)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_COORDINATOR_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings/9a38ff12-32ba-4cd4-b912-8812cfa77189/coordinator-response",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings",
+                "9a38ff12-32ba-4cd4-b912-8812cfa77189",
+                "coordinator-response"
+              ]
+            },
+            "description": "Allows assigned Faculty Coordinator to accept or counter HOD-imposed partial terms.\n\n**Method:** `PATCH`\n**Endpoint:** `/api/v1/venues/bookings/:id/coordinator-response`\n**Auth:** Faculty Coordinator Bearer Token (`{{FACULTY_COORDINATOR_JWT_TOKEN}}`)\n**Payload Options:**\n- Agree: `{ \"agree_to_terms\": true }` (transitions status to `PENDING_PRINCIPAL`)\n- Counter: `{ \"agree_to_terms\": false, \"counter_proposal\": \"...\" }` (returns to authority for re-evaluation)\n**Expected Response (`200 OK`):** Returns updated booking status with appended timeline record.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agree_to_terms\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Principal Review (Final Sign-Off & Official Allotment)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{PRINCIPAL_OR_SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings/9a38ff12-32ba-4cd4-b912-8812cfa77189/principal-review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings",
+                "9a38ff12-32ba-4cd4-b912-8812cfa77189",
+                "principal-review"
+              ]
+            },
+            "description": "Submits final institutional sign-off for venue booking allotment.\n\n**Method:** `PATCH`\n**Endpoint:** `/api/v1/venues/bookings/:id/principal-review`\n**Auth:** Principal or Super Admin Bearer Token (`{{PRINCIPAL_OR_SUPER_ADMIN_JWT_TOKEN}}`)\n**Payload:** `action` (`APPROVE` or `REJECT`), `remarks`.\n**Expected Response (`200 OK`):** When approved, booking status officially transitions to `APPROVED` and allotment is locked.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"APPROVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Request Change of Venue (Coordinator Only)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FACULTY_COORDINATOR_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings/9a38ff12-32ba-4cd4-b912-8812cfa77189/change-venue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings",
+                "9a38ff12-32ba-4cd4-b912-8812cfa77189",
+                "change-venue"
+              ]
+            },
+            "description": "Allows assigned Coordinator to request relocation of a booking to an alternate venue.\n\n**Method:** `PATCH`\n**Endpoint:** `/api/v1/venues/bookings/:id/change-venue`\n**Auth:** Faculty Coordinator Bearer Token (`{{FACULTY_COORDINATOR_JWT_TOKEN}}`)\n**Payload:** `new_venue_id`, `justification`.\n**Expected Response (`200 OK`):** Relocates venue upon conflict check, updates `venue_id`, and appends audit timeline log.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_venue_id\": \"7d9ecb3b-1106-465f-8ea8-970d52c90e47\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. Cancel Booking & Trigger 24-Hour Cooldown Penalty",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{INITIATOR_OR_COORDINATOR_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings/9a38ff12-32ba-4cd4-b912-8812cfa77189/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings",
+                "9a38ff12-32ba-4cd4-b912-8812cfa77189",
+                "cancel"
+              ]
+            },
+            "description": "Cancels an active booking and activates a 24-hour cooldown penalty against the caller for this venue.\n\n**Method:** `POST`\n**Endpoint:** `/api/v1/venues/bookings/:id/cancel`\n**Auth:** Initiator or Coordinator Bearer Token (`{{INITIATOR_OR_COORDINATOR_JWT_TOKEN}}`)\n**Payload:** `cancellation_reason`.\n**Expected Response (`200 OK`):** Status becomes `CANCELLED`, slot is released, and 24-hour cooldown penalty is engaged.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancellation_reason\": \"Event rescheduled due to state holiday\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "13. Desperate User Venue Transfer Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{STUDENT_OR_FACULTY_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings/9a38ff12-32ba-4cd4-b912-8812cfa77189/transfer-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings",
+                "9a38ff12-32ba-4cd4-b912-8812cfa77189",
+                "transfer-request"
+              ]
+            },
+            "description": "Submits an emergency/urgent transfer request for an already-booked venue slot.\n\n**Method:** `POST`\n**Endpoint:** `/api/v1/venues/bookings/:id/transfer-request`\n**Auth:** Requesting User Bearer Token (`{{STUDENT_OR_FACULTY_JWT_TOKEN}}`)\n**Payload:** `urgency_reason`, `new_event_title`, `new_purpose`, `new_coordinator_id`.\n**Expected Response (`201 Created`):** Returns transfer request record with status `PENDING_COORDINATOR`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"urgency_reason\": \"Emergency NAAC Peer Review Team inspection scheduled on this exact date\",\n  \"new_event_title\": \"NAAC Peer Committee Interaction Session\",\n  \"new_purpose\": \"Accreditation committee interaction with students and faculty\",\n  \"new_coordinator_id\": \"000e54b9-f5c6-4777-850c-ebc73a73766f\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "14. Current Coordinator Responds to Transfer Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{CURRENT_COORDINATOR_JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/transfer-requests/497734e8-1c26-419a-abf6-093429ca6b3b/respond",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "transfer-requests",
+                "497734e8-1c26-419a-abf6-093429ca6b3b",
+                "respond"
+              ],
+              "query": []
+            },
+            "description": "Current coordinator reviews and responds to a pending transfer request.\n\n**Method:** `PATCH`\n**Endpoint:** `/api/v1/venues/transfer-requests/:transferId/respond`\n**Auth:** Current Coordinator Bearer Token (`{{CURRENT_COORDINATOR_JWT_TOKEN}}`)\n**Payload:** `action` (`APPROVE` or `REJECT`), `response_message`.\n**Expected Response (`200 OK`):** If approved, atomically transfers booking initiator, coordinator, and event details in an ACID transaction.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"action\": \"APPROVE\",\n    \"response_message\": \"Approved in higher institutional interest for NAAC accreditation inspection\"\n  }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request responded with success', function () {\n    pm.expect(pm.response.code).to.be.below(400);\n});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unified Multi-Tier Review (HOD / Management / Principal)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{PRINCIPAL_OR_SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"APPROVE\",\n  \"remarks\": \"Approved officially for institution hackathon\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/venues/bookings/{{bookingId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "venues",
+                "bookings",
+                "{{bookingId}}",
+                "review"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Module 7: Campus Placement Drives & Applications",
+      "item": [
+        {
+          "name": "List Campus Placement Drives",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/placements/drives",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "placements",
+                "drives"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Campus Placement Drive (PLC Admin / Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_name\": \"Google India\",\n  \"role_title\": \"Associate Software Engineer\",\n  \"package_lpa\": 32.5,\n  \"min_cgpa\": 8.0,\n  \"eligible_branches\": [\n    \"CSE\",\n    \"AIML\",\n    \"DS\",\n    \"CYBER\"\n  ],\n  \"drive_date\": \"2026-12-15\",\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/placements/drives",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "placements",
+                "drives"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Student Apply for Placement Drive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{STUDENT_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resume_url\": \"https://drive.google.com/file/d/sample-resume/view\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/placements/drives/{{driveId}}/apply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "placements",
+                "drives",
+                "{{driveId}}",
+                "apply"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Module 8: Student Finance Obligations & Ledger Payments",
+      "item": [
+        {
+          "name": "List Student Finance Fee Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{JWT_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/finance/records?student_id={{studentUsn}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "finance",
+                "records"
+              ],
+              "query": [
+                {
+                  "key": "student_id",
+                  "value": "{{studentUsn}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Impose Fee Obligation (ACC Admin / Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FINANCE_ADMIN_JWT}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"student_id\": \"{{studentUsn}}\",\n  \"fee_type\": \"TUITION\",\n  \"amount_due\": 85000.0,\n  \"due_date\": \"2026-12-31\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/finance/records",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "finance",
+                "records"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Record Fee Payment Against Fee Record",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{FINANCE_ADMIN_JWT}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount_paid\": 42500.0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/finance/records/{{financeRecordId}}/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "finance",
+                "records",
+                "{{financeRecordId}}",
+                "pay"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Internal Bulk Provisioning Engine (Non-Public Master Seeder)",
+      "item": [
+        {
+          "name": "Trigger Internal Bulk Provisioning Job (2064 Students + 310 Faculty)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-internal-seed-key",
+                "value": "{{bootstrapKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPER_ADMIN_JWT_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/internal/bulk-provision",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "internal",
+                "bulk-provision"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pre-generate Master CSV Files (CSV Only Mode)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-internal-seed-key",
+                "value": "{{bootstrapKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/internal/bulk-provision?csv_only=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "internal",
+                "bulk-provision"
+              ],
+              "query": [
+                {
+                  "key": "csv_only",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Inspect Bulk Provisioning Job Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-internal-seed-key",
+                "value": "{{bootstrapKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/internal/bulk-provision/status/{{jobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "internal",
+                "bulk-provision",
+                "status",
+                "{{jobId}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

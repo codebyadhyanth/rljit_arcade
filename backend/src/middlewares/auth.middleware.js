@@ -218,6 +218,46 @@ export function requirePrincipal(req, res, next) {
 }
 
 /**
+ * Middleware that optionally verifies JWT if present, otherwise proceeds without error
+ */
+export async function optionalJWT(req, res, next) {
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  if (!authHeader) {
+    return next();
+  }
+  const parts = authHeader.split(' ');
+  const token = parts.length === 2 && /^Bearer$/i.test(parts[0]) ? parts[1] : authHeader;
+  if (!token) {
+    return next();
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId || decoded.id;
+    if (userId) {
+      const userRes = await pool.query(
+        'SELECT id, username, base_role, admin_tier, department, section_code, sub_roles, is_active FROM users WHERE id = $1',
+        [userId]
+      );
+      if (userRes.rowCount > 0 && userRes.rows[0].is_active) {
+        req.user = {
+          ...decoded,
+          userId: userRes.rows[0].id,
+          username: userRes.rows[0].username,
+          baseRole: userRes.rows[0].base_role,
+          adminTier: userRes.rows[0].admin_tier,
+          department: userRes.rows[0].department,
+          sectionCode: userRes.rows[0].section_code,
+          subRoles: userRes.rows[0].sub_roles || [],
+        };
+      }
+    }
+  } catch {
+    // Ignore invalid optional token
+  }
+  return next();
+}
+
+/**
  * Middleware allowing STUDENT, FACULTY, or SUPER_ADMIN to initiate venue bookings
  */
 export function requireBookingInitiator(req, res, next) {
@@ -241,6 +281,7 @@ export function requireBookingInitiator(req, res, next) {
 
 export default {
   verifyJWT,
+  optionalJWT,
   requireSuperAdmin,
   requireHOD,
   requireFaculty,

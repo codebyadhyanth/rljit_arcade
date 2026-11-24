@@ -131,7 +131,7 @@ export async function commitAcademicRecords(req, res) {
         )
         VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-          date_trunc('day', $7::timestamptz) + interval '23 hours 59 minutes 59 seconds',
+          $7::date + interval '23 hours 59 minutes 59 seconds',
           FALSE
         )
         RETURNING id, student_usn, record_type, attendance_status, marks_obtained, locked_after,
@@ -509,6 +509,461 @@ export async function executeUnlockedUpdate(req, res) {
   }
 }
 
+/**
+ * Helper to resolve student UUID if USN is provided
+ */
+async function resolveStudentId(idOrUsn, client = pool) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrUsn);
+  if (isUuid) return idOrUsn;
+
+  const res = await client.query('SELECT id FROM users WHERE username = $1', [String(idOrUsn).toUpperCase()]);
+  if (res.rowCount > 0) return res.rows[0].id;
+
+  const resStudent = await client.query('SELECT user_id FROM student WHERE usn = $1', [String(idOrUsn).toUpperCase()]);
+  if (resStudent.rowCount > 0) return resStudent.rows[0].user_id;
+
+  return null;
+}
+
+/**
+ * POST /api/v1/attendance/manual
+ * Faculty bulk-marks section attendance inside a PostgreSQL transaction; returns dbReceipt
+ */
+export async function markManualAttendance(req, res) {
+  const client = await pool.connect();
+  try {
+    await ensureDatabaseExists();
+    const {
+      department,
+      semester,
+      section,
+      subject_code,
+      subjectCode,
+      attendance_date,
+      attendanceDate,
+      period_no,
+      periodNo,
+      records = [],
+    } = req.body;
+
+    const dept = (department || req.user.department || 'CSE').toUpperCase();
+    const sem = parseInt(semester || '1', 10);
+    const sec = (section || 'A').toUpperCase();
+    const subCode = String(subject_code || subjectCode || '').trim().toUpperCase();
+    const attDate = attendance_date || attendanceDate || new Date().toISOString().split('T')[0];
+    const period = parseInt(period_no || periodNo || '1', 10);
+    const facultyId = req.user.userId || req.user.id;
+
+    if (!dept || !subCode || !Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'department, semester, section, subject_code, and non-empty records array are required',
+      });
+    }
+
+    await client.query('BEGIN');
+    const insertedRecords = [];
+
+    for (const item of records) {
+      const rawId = item.student_id || item.studentId || item.usn || item.id;
+      const targetStudentId = await resolveStudentId(rawId, client);
+      if (!targetStudentId) continue;
+
+      const rawStatus = String(item.status || 'PRESENT').toUpperCase();
+      const status = ['PRESENT', 'ABSENT', 'LATE'].includes(rawStatus) ? rawStatus : 'PRESENT';
+
+      const insertQuery = `
+        INSERT INTO attendance_records (
+          student_id, faculty_id, department, semester, section,
+          subject_code, attendance_date, period_no, status, entry_mode
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'MANUAL')
+        RETURNING *;
+      `;
+
+      const r = await client.query(insertQuery, [
+        targetStudentId,
+        facultyId,
+        dept,
+        sem,
+        sec,
+        subCode,
+        attDate,
+        period,
+        status,
+      ]);
+      insertedRecords.push(r.rows[0]);
+    }
+
+    await client.query('COMMIT');
+
+    const dbReceipt = {
+      receiptId: `RCPT-ATT-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      transactionId: `tx_att_${Date.now()}`,
+      table: 'attendance_records',
+      status: 'COMMITTED',
+      markedBy: facultyId,
+      department: dept,
+      semester: sem,
+      section: sec,
+      subjectCode: subCode,
+      attendanceDate: attDate,
+      periodNo: period,
+      totalMarked: insertedRecords.length,
+      timestamp: new Date().toISOString(),
+    };
+
+    return res.status(201).json({
+      success: true,
+      message: `Manual attendance recorded for ${insertedRecords.length} student(s)`,
+      dbReceipt,
+      count: insertedRecords.length,
+      records: insertedRecords,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('markManualAttendance error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to record manual attendance' });
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * GET /api/v1/attendance/student/:studentId
+ * Live attendance summary & percentages for a specific student
+ */
+export async function getStudentAttendance(req, res) {
+  try {
+    await ensureDatabaseExists();
+    const { studentId } = req.params;
+    const resolvedId = await resolveStudentId(studentId);
+
+    if (!resolvedId) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
+    }
+
+    const query = `
+      SELECT ar.id, ar.subject_code, ar.attendance_date, ar.period_no, ar.status, ar.created_at,
+             u_fac.username AS faculty_username
+      FROM attendance_records ar
+      LEFT JOIN users u_fac ON ar.faculty_id = u_fac.id
+      WHERE ar.student_id = $1
+      ORDER BY ar.attendance_date DESC, ar.period_no DESC;
+    `;
+    const result = await pool.query(query, [resolvedId]);
+
+    const records = result.rows;
+    const totalClasses = records.length;
+    const presentCount = records.filter((r) => r.status === 'PRESENT').length;
+    const absentCount = records.filter((r) => r.status === 'ABSENT').length;
+    const lateCount = records.filter((r) => r.status === 'LATE').length;
+    const overallPercentage = totalClasses > 0 ? parseFloat(((presentCount / totalClasses) * 100).toFixed(2)) : 100.0;
+
+    // Per-subject statistics
+    const subjectMap = {};
+    for (const r of records) {
+      if (!subjectMap[r.subject_code]) {
+        subjectMap[r.subject_code] = { total: 0, present: 0, absent: 0, late: 0 };
+      }
+      subjectMap[r.subject_code].total += 1;
+      if (r.status === 'PRESENT') subjectMap[r.subject_code].present += 1;
+      else if (r.status === 'ABSENT') subjectMap[r.subject_code].absent += 1;
+      else if (r.status === 'LATE') subjectMap[r.subject_code].late += 1;
+    }
+
+    const subjectWise = Object.keys(subjectMap).map((code) => {
+      const stats = subjectMap[code];
+      return {
+        subject_code: code,
+        total: stats.total,
+        present: stats.present,
+        absent: stats.absent,
+        late: stats.late,
+        percentage: stats.total > 0 ? parseFloat(((stats.present / stats.total) * 100).toFixed(2)) : 100.0,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      studentId: resolvedId,
+      summary: {
+        totalClasses,
+        presentCount,
+        absentCount,
+        lateCount,
+        overallPercentage,
+      },
+      subjectWise,
+      records,
+    });
+  } catch (error) {
+    console.error('getStudentAttendance error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to retrieve attendance' });
+  }
+}
+
+/**
+ * GET /api/v1/attendance/section
+ * Live attendance summary for section/dept
+ */
+export async function getSectionAttendance(req, res) {
+  try {
+    await ensureDatabaseExists();
+    const { department, semester, section, subject_code, attendance_date } = req.query;
+
+    const conditions = [];
+    const values = [];
+
+    if (department) {
+      values.push(department.toUpperCase());
+      conditions.push(`ar.department = $${values.length}`);
+    }
+    if (semester) {
+      const sem = parseInt(semester, 10);
+      if (!isNaN(sem)) {
+        values.push(sem);
+        conditions.push(`ar.semester = $${values.length}`);
+      }
+    }
+    if (section) {
+      values.push(section.toUpperCase());
+      conditions.push(`ar.section = $${values.length}`);
+    }
+    if (subject_code) {
+      values.push(subject_code.toUpperCase());
+      conditions.push(`ar.subject_code = $${values.length}`);
+    }
+    if (attendance_date) {
+      values.push(attendance_date);
+      conditions.push(`ar.attendance_date = $${values.length}::date`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT ar.id, ar.student_id, u_stu.username AS student_usn,
+             ar.department, ar.semester, ar.section, ar.subject_code,
+             ar.attendance_date, ar.period_no, ar.status, ar.entry_mode, ar.created_at,
+             u_fac.username AS faculty_username
+      FROM attendance_records ar
+      JOIN users u_stu ON ar.student_id = u_stu.id
+      LEFT JOIN users u_fac ON ar.faculty_id = u_fac.id
+      ${whereClause}
+      ORDER BY ar.attendance_date DESC, ar.period_no ASC, u_stu.username ASC;
+    `;
+
+    const result = await pool.query(query, values);
+    return res.status(200).json({
+      success: true,
+      count: result.rowCount,
+      records: result.rows,
+    });
+  } catch (error) {
+    console.error('getSectionAttendance error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to retrieve section attendance' });
+  }
+}
+
+/**
+ * POST /api/v1/cie/manual
+ * Faculty upserts CIE 1/2/3 & Assignment marks; auto-calculates total
+ */
+export async function upsertCieMarks(req, res) {
+  const client = await pool.connect();
+  try {
+    await ensureDatabaseExists();
+    let records = [];
+    if (Array.isArray(req.body)) {
+      records = req.body;
+    } else if (Array.isArray(req.body.records)) {
+      records = req.body.records;
+    } else if (req.body.student_id || req.body.studentId || req.body.usn) {
+      records = [req.body];
+    }
+
+    if (records.length === 0) {
+      return res.status(400).json({ success: false, error: 'No CIE marks records provided' });
+    }
+
+    const facultyId = req.user.userId || req.user.id;
+    await client.query('BEGIN');
+    const upserted = [];
+
+    for (const r of records) {
+      const rawStudentId = r.student_id || r.studentId || r.usn;
+      const targetStudentId = await resolveStudentId(rawStudentId, client);
+      if (!targetStudentId) continue;
+
+      const dept = (r.department || req.body.department || req.user.department || 'CSE').toUpperCase();
+      const sem = parseInt(r.semester || req.body.semester || '1', 10);
+      const subCode = String(r.subject_code || r.subjectCode || req.body.subject_code || req.body.subjectCode || '').trim().toUpperCase();
+      const subName = r.subject_name || r.subjectName || req.body.subject_name || null;
+
+      const cie1 = parseFloat(r.cie1_marks || r.cie1 || 0);
+      const cie2 = parseFloat(r.cie2_marks || r.cie2 || 0);
+      const cie3 = parseFloat(r.cie3_marks || r.cie3 || 0);
+      const assignment = parseFloat(r.assignment_marks || r.assignment || 0);
+      const maxMarks = parseFloat(r.max_marks || r.maxMarks || 50);
+
+      // Auto-calculate Total CIE: (CIE1 + CIE2 + CIE3 + Assignment) capped at max_marks
+      const calculatedTotal = Math.min(maxMarks, parseFloat((cie1 + cie2 + cie3 + assignment).toFixed(2)));
+
+      const upsertQuery = `
+        INSERT INTO cie_marks (
+          student_id, faculty_id, department, semester,
+          subject_code, subject_name, cie1_marks, cie2_marks, cie3_marks,
+          assignment_marks, total_cie, max_marks, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+        ON CONFLICT (student_id, subject_code, semester)
+        DO UPDATE SET
+          cie1_marks = EXCLUDED.cie1_marks,
+          cie2_marks = EXCLUDED.cie2_marks,
+          cie3_marks = EXCLUDED.cie3_marks,
+          assignment_marks = EXCLUDED.assignment_marks,
+          total_cie = EXCLUDED.total_cie,
+          max_marks = EXCLUDED.max_marks,
+          subject_name = COALESCE(EXCLUDED.subject_name, cie_marks.subject_name),
+          updated_at = NOW()
+        RETURNING *;
+      `;
+
+      const result = await client.query(upsertQuery, [
+        targetStudentId,
+        facultyId,
+        dept,
+        sem,
+        subCode,
+        subName,
+        cie1,
+        cie2,
+        cie3,
+        assignment,
+        calculatedTotal,
+        maxMarks,
+      ]);
+      upserted.push(result.rows[0]);
+    }
+
+    await client.query('COMMIT');
+
+    const dbReceipt = {
+      receiptId: `RCPT-CIE-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      transactionId: `tx_cie_${Date.now()}`,
+      table: 'cie_marks',
+      count: upserted.length,
+      evaluatedBy: facultyId,
+      timestamp: new Date().toISOString(),
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: `${upserted.length} CIE mark record(s) recorded successfully`,
+      dbReceipt,
+      count: upserted.length,
+      marks: upserted,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('upsertCieMarks error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to upsert CIE marks' });
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * GET /api/v1/cie/student/:studentId
+ * Student views own CIE marks
+ */
+export async function getStudentCieMarks(req, res) {
+  try {
+    await ensureDatabaseExists();
+    const { studentId } = req.params;
+    const resolvedId = await resolveStudentId(studentId);
+
+    if (!resolvedId) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
+    }
+
+    const query = `
+      SELECT cm.id, cm.department, cm.semester, cm.subject_code, cm.subject_name,
+             cm.cie1_marks, cm.cie2_marks, cm.cie3_marks, cm.assignment_marks,
+             cm.total_cie, cm.max_marks, cm.updated_at,
+             u_fac.username AS faculty_username
+      FROM cie_marks cm
+      LEFT JOIN users u_fac ON cm.faculty_id = u_fac.id
+      WHERE cm.student_id = $1
+      ORDER BY cm.semester ASC, cm.subject_code ASC;
+    `;
+
+    const result = await pool.query(query, [resolvedId]);
+    return res.status(200).json({
+      success: true,
+      studentId: resolvedId,
+      count: result.rowCount,
+      marks: result.rows,
+    });
+  } catch (error) {
+    console.error('getStudentCieMarks error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to fetch student CIE marks' });
+  }
+}
+
+/**
+ * GET /api/v1/cie/section
+ * Faculty / HOD views section CIE marks
+ */
+export async function getSectionCieMarks(req, res) {
+  try {
+    await ensureDatabaseExists();
+    const { department, semester, subject_code } = req.query;
+
+    const conditions = [];
+    const values = [];
+
+    if (department) {
+      values.push(department.toUpperCase());
+      conditions.push(`cm.department = $${values.length}`);
+    }
+    if (semester) {
+      const sem = parseInt(semester, 10);
+      if (!isNaN(sem)) {
+        values.push(sem);
+        conditions.push(`cm.semester = $${values.length}`);
+      }
+    }
+    if (subject_code) {
+      values.push(subject_code.toUpperCase());
+      conditions.push(`cm.subject_code = $${values.length}`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT cm.id, cm.student_id, u_stu.username AS student_usn,
+             cm.department, cm.semester, cm.subject_code, cm.subject_name,
+             cm.cie1_marks, cm.cie2_marks, cm.cie3_marks, cm.assignment_marks,
+             cm.total_cie, cm.max_marks, cm.updated_at,
+             u_fac.username AS faculty_username
+      FROM cie_marks cm
+      JOIN users u_stu ON cm.student_id = u_stu.id
+      LEFT JOIN users u_fac ON cm.faculty_id = u_fac.id
+      ${whereClause}
+      ORDER BY u_stu.username ASC, cm.subject_code ASC;
+    `;
+
+    const result = await pool.query(query, values);
+    return res.status(200).json({
+      success: true,
+      count: result.rowCount,
+      marks: result.rows,
+    });
+  } catch (error) {
+    console.error('getSectionCieMarks error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to fetch section CIE marks' });
+  }
+}
+
 export default {
   extractOcrDraft,
   commitAcademicRecords,
@@ -517,5 +972,11 @@ export default {
   hodApproveUnlock,
   principalApproveUnlock,
   executeUnlockedUpdate,
+  markManualAttendance,
+  getStudentAttendance,
+  getSectionAttendance,
+  upsertCieMarks,
+  getStudentCieMarks,
+  getSectionCieMarks,
 };
 

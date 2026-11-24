@@ -23,18 +23,6 @@ export default function DirectoryScreen() {
   const [execTimeMs, setExecTimeMs] = useState(null);
   const [error, setError] = useState('');
 
-  if (user?.baseRole === 'STUDENT') {
-    return (
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <UnderDevelopmentView
-          moduleName="Student Campus Directory"
-          phase="Phase 2"
-          description="Public student campus directory is currently restricted pending student privacy consent opt-ins."
-        />
-      </ScrollView>
-    );
-  }
-
   const handleSearch = async () => {
     if (!query.trim()) return;
 

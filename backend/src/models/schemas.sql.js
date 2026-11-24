@@ -68,6 +68,8 @@ export const ROLE_SCHEMAS = {
       full_name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE,
       department VARCHAR(100),
+      core_branch VARCHAR(16),
+      academic_year INT DEFAULT 1,
       semester INT,
       section VARCHAR(10),
       entry_type VARCHAR(50) DEFAULT 'REGULAR',
@@ -87,6 +89,7 @@ export const ROLE_SCHEMAS = {
       full_name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE,
       department VARCHAR(100),
+      classification VARCHAR(32) DEFAULT 'Assistant Professor',
       designation VARCHAR(100),
       cabin_room VARCHAR(32),
       is_lg_coordinator BOOLEAN DEFAULT FALSE,
@@ -385,6 +388,9 @@ export const MIGRATIONS_SQL = `
   ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT DEFAULT 1;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INT DEFAULT 0;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS core_branch VARCHAR(16);
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS academic_year INT DEFAULT 1;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS classification VARCHAR(32);
 
   -- Student table migrations
   ALTER TABLE student ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
@@ -392,23 +398,143 @@ export const MIGRATIONS_SQL = `
   ALTER TABLE student ADD COLUMN IF NOT EXISTS parent_whatsapp_encrypted TEXT;
   ALTER TABLE student ADD COLUMN IF NOT EXISTS admission_quota VARCHAR(32) DEFAULT 'KEA_CET';
   ALTER TABLE student ADD COLUMN IF NOT EXISTS cgpa NUMERIC(4,2) DEFAULT 0.00;
+  ALTER TABLE student ADD COLUMN IF NOT EXISTS core_branch VARCHAR(16);
+  ALTER TABLE student ADD COLUMN IF NOT EXISTS academic_year INT DEFAULT 1;
 
   -- Faculty table migrations
   ALTER TABLE faculty ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
   ALTER TABLE faculty ADD COLUMN IF NOT EXISTS cabin_room VARCHAR(32);
+  ALTER TABLE faculty ADD COLUMN IF NOT EXISTS classification VARCHAR(32) DEFAULT 'Assistant Professor';
 
   -- Admin table migrations
   ALTER TABLE admin ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
 
+  -- Venue and booking migrations
+  ALTER TABLE venues ADD COLUMN IF NOT EXISTS code VARCHAR(50);
+  ALTER TABLE venues ADD COLUMN IF NOT EXISTS building VARCHAR(100);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS requested_by UUID REFERENCES users(id);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS start_time TIMESTAMPTZ;
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS end_time TIMESTAMPTZ;
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS approved_by_hod UUID REFERENCES users(id);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS approved_by_mgt UUID REFERENCES users(id);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS approved_by_principal UUID REFERENCES users(id);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS remarks TEXT;
+
   -- Indexes for performance
   CREATE INDEX IF NOT EXISTS idx_student_user_id ON student (user_id);
   CREATE INDEX IF NOT EXISTS idx_student_lg_faculty_id ON student (lg_faculty_id);
+  CREATE INDEX IF NOT EXISTS idx_student_core_branch ON student (core_branch);
+  CREATE INDEX IF NOT EXISTS idx_student_academic_year ON student (academic_year);
   CREATE INDEX IF NOT EXISTS idx_faculty_user_id ON faculty (user_id);
+  CREATE INDEX IF NOT EXISTS idx_faculty_classification ON faculty (classification);
   CREATE INDEX IF NOT EXISTS idx_admin_user_id ON admin (user_id);
   CREATE INDEX IF NOT EXISTS idx_timetables_slot ON timetables (department, semester, section, day_of_week);
   CREATE INDEX IF NOT EXISTS idx_academic_records_lookup ON academic_records (student_usn, subject_code, record_type);
   CREATE INDEX IF NOT EXISTS idx_finance_ledgers_usn ON finance_ledgers (student_usn);
   CREATE INDEX IF NOT EXISTS idx_student_documents_usn ON student_documents (student_usn);
+  CREATE INDEX IF NOT EXISTS idx_timetable_slots_lookup ON timetable_slots (department, semester, section, day_of_week);
+  CREATE INDEX IF NOT EXISTS idx_attendance_records_student ON attendance_records (student_id, subject_code);
+  CREATE INDEX IF NOT EXISTS idx_attendance_records_section ON attendance_records (department, semester, section, attendance_date);
+  CREATE INDEX IF NOT EXISTS idx_cie_marks_student ON cie_marks (student_id);
+  CREATE INDEX IF NOT EXISTS idx_placement_drives_date ON placement_drives (drive_date);
+  CREATE INDEX IF NOT EXISTS idx_placement_applications_student ON placement_applications (student_id);
+  CREATE INDEX IF NOT EXISTS idx_finance_records_student ON finance_records (student_id);
+`;
+
+export const ACADEMIC_EXPANSION_SCHEMAS_SQL = `
+  -- Timetable Slots (Wave 1 Extension)
+  CREATE TABLE IF NOT EXISTS timetable_slots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    department VARCHAR(32) NOT NULL,
+    semester INT NOT NULL,
+    section VARCHAR(8) NOT NULL,
+    day_of_week INT NOT NULL CHECK (day_of_week BETWEEN 1 AND 6),
+    period_no INT NOT NULL,
+    start_time VARCHAR(16),
+    end_time VARCHAR(16),
+    subject_code VARCHAR(32) NOT NULL,
+    subject_name VARCHAR(255),
+    faculty_id UUID REFERENCES users(id),
+    room_no VARCHAR(32),
+    swapped_faculty_id UUID REFERENCES users(id),
+    swap_status VARCHAR(20) DEFAULT 'NONE' CHECK (swap_status IN ('NONE', 'PENDING', 'APPROVED', 'REJECTED')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(department, semester, section, day_of_week, period_no)
+  );
+
+  -- Attendance Records (Manual Attendance Marking)
+  CREATE TABLE IF NOT EXISTS attendance_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    faculty_id UUID REFERENCES users(id),
+    department VARCHAR(32) NOT NULL,
+    semester INT NOT NULL,
+    section VARCHAR(8) NOT NULL,
+    subject_code VARCHAR(32) NOT NULL,
+    attendance_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    period_no INT NOT NULL DEFAULT 1,
+    status VARCHAR(16) NOT NULL CHECK (status IN ('PRESENT', 'ABSENT', 'LATE')),
+    entry_mode VARCHAR(20) DEFAULT 'MANUAL',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  -- CIE Marks (Manual Assessment Console)
+  CREATE TABLE IF NOT EXISTS cie_marks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    faculty_id UUID REFERENCES users(id),
+    department VARCHAR(32) NOT NULL,
+    semester INT NOT NULL,
+    subject_code VARCHAR(32) NOT NULL,
+    subject_name VARCHAR(255),
+    cie1_marks NUMERIC(5,2) DEFAULT 0,
+    cie2_marks NUMERIC(5,2) DEFAULT 0,
+    cie3_marks NUMERIC(5,2) DEFAULT 0,
+    assignment_marks NUMERIC(5,2) DEFAULT 0,
+    total_cie NUMERIC(5,2) DEFAULT 0,
+    max_marks NUMERIC(5,2) DEFAULT 50,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, subject_code, semester)
+  );
+
+  -- Placements Drives & Applications
+  CREATE TABLE IF NOT EXISTS placement_drives (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_name VARCHAR(255) NOT NULL,
+    role_title VARCHAR(255) NOT NULL,
+    package_lpa NUMERIC(5,2) NOT NULL,
+    min_cgpa NUMERIC(4,2) DEFAULT 6.0,
+    eligible_branches TEXT[] DEFAULT '{}',
+    drive_date DATE NOT NULL,
+    status VARCHAR(30) DEFAULT 'UPCOMING' CHECK (status IN ('UPCOMING', 'ACTIVE', 'COMPLETED', 'CANCELLED')),
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS placement_applications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    drive_id UUID NOT NULL REFERENCES placement_drives(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    applied_at TIMESTAMPTZ DEFAULT NOW(),
+    status VARCHAR(30) DEFAULT 'APPLIED' CHECK (status IN ('APPLIED', 'SHORTLISTED', 'REJECTED', 'OFFERED')),
+    resume_url TEXT,
+    UNIQUE(drive_id, student_id)
+  );
+
+  -- Finance Records
+  CREATE TABLE IF NOT EXISTS finance_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    fee_type VARCHAR(50) NOT NULL,
+    amount_due NUMERIC(10,2) NOT NULL,
+    amount_paid NUMERIC(10,2) DEFAULT 0.00,
+    fine_amount NUMERIC(10,2) DEFAULT 0.00,
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PAID', 'PARTIAL', 'PENDING')),
+    due_date DATE,
+    updated_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
 `;
 
 export const VALID_ROLES = ['student', 'faculty', 'admin'];
@@ -422,6 +548,7 @@ export const ALL_SCHEMAS = [
   ROLE_SCHEMAS.faculty,
   ROLE_SCHEMAS.admin,
   DOMAIN_TABLES_SQL,
+  ACADEMIC_EXPANSION_SCHEMAS_SQL,
   VENUE_MIGRATIONS_SQL,
   MIGRATIONS_SQL
 ];
