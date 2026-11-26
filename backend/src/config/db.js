@@ -37,22 +37,32 @@ pool.on('error', (err) => {
 });
 
 let initPromise = null;
+let tablesInitPromise = null;
 
 /**
  * Initializes required extensions, atomic sequences, and users schemas
  */
 export async function initDatabaseTables() {
-  const client = await pool.connect();
-  try {
-    for (const schemaSql of ALL_SCHEMAS) {
-      await client.query(schemaSql);
-    }
-  } catch (err) {
-    console.error('Error initializing database tables/extensions:', err.message);
-    throw err;
-  } finally {
-    client.release();
+  if (tablesInitPromise) {
+    return tablesInitPromise;
   }
+
+  tablesInitPromise = (async () => {
+    const client = await pool.connect();
+    try {
+      for (const schemaSql of ALL_SCHEMAS) {
+        await client.query(schemaSql);
+      }
+    } catch (err) {
+      console.error('Error initializing database tables/extensions:', err.message);
+      throw err;
+    } finally {
+      client.release();
+      tablesInitPromise = null;
+    }
+  })();
+
+  return tablesInitPromise;
 }
 
 /**

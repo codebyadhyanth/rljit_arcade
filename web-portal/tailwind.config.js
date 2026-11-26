@@ -10,7 +10,7 @@ export default {
         obsidian: '#121214',
         obsidianDark: '#0D0D0F',
         obsidianBorder: '#27272A',
-        brandOrange: '#FF5A1F',
+        brandOrange: '#EA580C',
         brandOrangeLight: '#F97316',
         brandOrangeTint: '#FFF3ED',
         brandOrangeDark: '#C2410C',

@@ -8,6 +8,13 @@ export default function DbReceiptCard({
 }) {
   if (!receipt) return null;
 
+  const tablesValue = Array.isArray(receipt.storedInTables)
+    ? receipt.storedInTables.join(' & ')
+    : receipt.storedInTables || receipt.storedInTable || null;
+
+  const timestampValue = receipt.lastLoginAt || receipt.timestamp || null;
+  const countValue = receipt.committedCount ?? receipt.count;
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -21,40 +28,47 @@ export default function DbReceiptCard({
         {receipt.pgTransactionId ? (
           <View style={styles.col}>
             <Text style={styles.metaLabel}>PG Transaction (xmin)</Text>
-            <Text style={styles.metaValue}>{receipt.pgTransactionId}</Text>
+            <Text style={styles.metaValue}>{String(receipt.pgTransactionId)}</Text>
           </View>
         ) : null}
 
         {receipt.physicalDiskTuple ? (
           <View style={styles.col}>
             <Text style={styles.metaLabel}>Disk Tuple (ctid)</Text>
-            <Text style={styles.metaValue}>{receipt.physicalDiskTuple}</Text>
+            <Text style={styles.metaValue}>{String(receipt.physicalDiskTuple)}</Text>
           </View>
         ) : null}
 
         {receipt.loginCount !== undefined ? (
           <View style={styles.col}>
             <Text style={styles.metaLabel}>Login Count</Text>
-            <Text style={styles.metaValue}>{receipt.loginCount}</Text>
+            <Text style={styles.metaValue}>{String(receipt.loginCount)}</Text>
           </View>
         ) : null}
 
-        {receipt.storedInTables ? (
+        {countValue !== undefined ? (
           <View style={styles.col}>
-            <Text style={styles.metaLabel}>Relational Tables</Text>
+            <Text style={styles.metaLabel}>Rows Persisted</Text>
+            <Text style={styles.metaValue}>{String(countValue)}</Text>
+          </View>
+        ) : null}
+
+        {tablesValue ? (
+          <View style={[styles.col, { width: '100%' }]}>
+            <Text style={styles.metaLabel}>Relational Table(s)</Text>
             <Text style={[styles.metaValue, { color: Colors.statusEmerald }]}>
-              {Array.isArray(receipt.storedInTables)
-                ? receipt.storedInTables.join(' & ')
-                : receipt.storedInTables}
+              {tablesValue}
             </Text>
           </View>
         ) : null}
 
-        {receipt.lastLoginAt ? (
+        {timestampValue ? (
           <View style={[styles.col, { width: '100%' }]}>
-            <Text style={styles.metaLabel}>Last Login Audit Timestamp</Text>
+            <Text style={styles.metaLabel}>
+              {receipt.lastLoginAt ? 'Last Login Audit Timestamp' : 'Commit Timestamp'}
+            </Text>
             <Text style={[styles.metaValue, { fontSize: 11 }]}>
-              {new Date(receipt.lastLoginAt).toLocaleString()}
+              {new Date(timestampValue).toLocaleString()}
             </Text>
           </View>
         ) : null}
@@ -85,6 +99,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: Colors.textPrimary,
+    flex: 1,
+    paddingRight: 8,
   },
   badge: {
     backgroundColor: Colors.statusEmeraldBg,

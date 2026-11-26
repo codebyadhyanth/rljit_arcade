@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 import api from '../../config/api';
 import Colors from '../../theme/colors';
@@ -32,18 +31,23 @@ export default function DbLedgerTool({ onBack }) {
     fetchLedger();
   }, []);
 
+  const counts = data?.liveTableCounts || {};
+  const countEntries = Object.entries(counts);
+
   return (
     <View style={styles.card}>
-      {onBack && (
+      {onBack ? (
         <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backBtnText}>← Back to Services Catalog</Text>
+          <Text style={styles.backBtnText}>← Back to Services</Text>
         </TouchableOpacity>
-      )}
+      ) : null}
 
       <View style={styles.headerRow}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.title}>Cryptographic DB Ledger</Text>
-          <Text style={styles.subtitle}>Raw PostgreSQL disk tuple coordinates</Text>
+          <Text style={styles.subtitle}>
+            Live PostgreSQL table counts & physical tuple coordinates (xmin / ctid)
+          </Text>
         </View>
         <TouchableOpacity
           onPress={fetchLedger}
@@ -65,47 +69,70 @@ export default function DbLedgerTool({ onBack }) {
         <ActivityIndicator color={Colors.brandOrange} style={{ marginVertical: 20 }} />
       ) : (
         <View style={styles.content}>
-          {/* Table Counts */}
+          {/* Live Table Counts */}
+          <Text style={styles.sectionHeader}>
+            Live PostgreSQL Table Counts ({countEntries.length} tables)
+          </Text>
           <View style={styles.gridCounts}>
-            <View style={styles.countBox}>
-              <Text style={styles.countLabel}>Users</Text>
-              <Text style={styles.countVal}>{data?.tableCounts?.users_count ?? 0}</Text>
-            </View>
-            <View style={styles.countBox}>
-              <Text style={styles.countLabel}>Students</Text>
-              <Text style={styles.countVal}>{data?.tableCounts?.student_count ?? 0}</Text>
-            </View>
-            <View style={styles.countBox}>
-              <Text style={styles.countLabel}>Faculty</Text>
-              <Text style={styles.countVal}>{data?.tableCounts?.faculty_count ?? 0}</Text>
-            </View>
-            <View style={styles.countBox}>
-              <Text style={styles.countLabel}>Admins</Text>
-              <Text style={styles.countVal}>{data?.tableCounts?.admin_count ?? 0}</Text>
-            </View>
+            {countEntries.map(([table, count]) => (
+              <View key={table} style={styles.countBox}>
+                <Text style={styles.countLabel} numberOfLines={1}>
+                  {table.replace(/_/g, ' ')}
+                </Text>
+                <Text style={styles.countVal}>{count ?? 0}</Text>
+              </View>
+            ))}
           </View>
 
-          {/* Record Items */}
-          <Text style={styles.sectionHeader}>Latest Database Tuples</Text>
-          {data?.records && data.records.length > 0 ? (
-            data.records.slice(0, 10).map((r, i) => (
-              <View key={i} style={styles.recordItem}>
-                <View style={styles.recordHeader}>
-                  <Text style={styles.recordUsername}>{r.username}</Text>
-                  <View style={styles.roleTag}>
-                    <Text style={styles.roleTagText}>{r.baseRole}</Text>
+          {/* Latest Database Tuples */}
+          <Text style={styles.sectionHeader}>
+            Latest Database Tuples ({data?.recordsCount ?? data?.records?.length ?? 0})
+          </Text>
+          {Array.isArray(data?.records) && data.records.length > 0 ? (
+            data.records.slice(0, 15).map((r, i) => {
+              const meta = r.metadata || {};
+              const preview = r.decryptedPreview || {};
+              const proof = r.rawDatabaseProof || {};
+              const linked = meta.linkedRoleRecord;
+
+              return (
+                <View key={meta.id || i} style={styles.recordItem}>
+                  <View style={styles.recordHeader}>
+                    <Text style={styles.recordUsername}>{meta.username || '—'}</Text>
+                    <View style={styles.roleTag}>
+                      <Text style={styles.roleTagText}>
+                        {meta.admin_tier || meta.base_role || 'USER'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.recordName}>
+                    {preview.fullName || '<Decrypted Name Unavailable>'}
+                  </Text>
+                  <Text style={styles.recordScope}>
+                    {[
+                      meta.department ? `Dept: ${meta.department}` : null,
+                      meta.section_code ? `Sec: ${meta.section_code}` : null,
+                      linked ? `Linked: ${linked.table}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'Global Scope'}
+                  </Text>
+
+                  {proof.passwordHashPrefix ? (
+                    <Text style={styles.hashText} numberOfLines={1}>
+                      Argon2id: {proof.passwordHashPrefix}
+                    </Text>
+                  ) : null}
+
+                  <View style={styles.tupleRow}>
+                    <Text style={styles.tupleText}>xmin: {meta.pg_xmin || '—'}</Text>
+                    <Text style={styles.tupleText}>ctid: {meta.pg_ctid || '—'}</Text>
+                    <Text style={styles.tupleText}>Logins: {meta.login_count ?? 0}</Text>
                   </View>
                 </View>
-                <Text style={styles.recordName}>
-                  {r.fullNameDecrypted || '<Decrypted Name>'}
-                </Text>
-                <View style={styles.tupleRow}>
-                  <Text style={styles.tupleText}>xmin: {r.pg_xmin || '—'}</Text>
-                  <Text style={styles.tupleText}>ctid: {r.pg_ctid || '—'}</Text>
-                  <Text style={styles.tupleText}>Logins: {r.loginCount ?? 0}</Text>
-                </View>
-              </View>
-            ))
+              );
+            })
           ) : (
             <Text style={styles.emptyText}>No user records found.</Text>
           )}
@@ -125,10 +152,12 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   backBtn: {
-    marginBottom: 10,
+    minHeight: 48,
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   backBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: Colors.brandOrange,
   },
@@ -137,10 +166,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+    gap: 10,
   },
   title: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: Colors.textPrimary,
   },
   subtitle: {
@@ -149,42 +179,47 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   refreshBtn: {
+    minHeight: 48,
     backgroundColor: '#FBFBFC',
     borderWidth: 1,
     borderColor: Colors.hairlineBorder,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   refreshText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: Colors.textBody,
   },
   errorBox: {
     backgroundColor: Colors.statusRoseBg,
-    borderRadius: 10,
-    padding: 10,
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
     marginBottom: 10,
   },
   errorText: {
     color: Colors.statusRose,
     fontSize: 12,
+    fontWeight: '600',
   },
-  content: {
-    gap: 10,
-  },
+  content: { gap: 10 },
   gridCounts: {
     flexDirection: 'row',
-    gap: 6,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   countBox: {
-    flex: 1,
+    width: '31%',
+    flexGrow: 1,
     backgroundColor: '#FBFBFC',
     borderWidth: 1,
     borderColor: Colors.hairlineBorder,
-    borderRadius: 10,
-    padding: 8,
+    borderRadius: 12,
+    padding: 10,
     alignItems: 'center',
   },
   countLabel: {
@@ -192,17 +227,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textMuted,
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   countVal: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: Colors.textPrimary,
-    fontFamily: 'monospace',
-    marginTop: 2,
+    marginTop: 3,
   },
   sectionHeader: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: Colors.textMuted,
     textTransform: 'uppercase',
     marginTop: 6,
@@ -211,8 +246,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBFBFC',
     borderWidth: 1,
     borderColor: Colors.hairlineBorder,
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 14,
+    padding: 12,
+    gap: 3,
   },
   recordHeader: {
     flexDirection: 'row',
@@ -221,15 +257,14 @@ const styles = StyleSheet.create({
   },
   recordUsername: {
     fontSize: 13,
-    fontWeight: '700',
-    fontFamily: 'monospace',
+    fontWeight: '800',
     color: Colors.textPrimary,
   },
   roleTag: {
     backgroundColor: Colors.surfaceDark,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
   },
   roleTagText: {
     fontSize: 9,
@@ -237,9 +272,18 @@ const styles = StyleSheet.create({
     color: Colors.textInverse,
   },
   recordName: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
     color: Colors.textBody,
     marginTop: 2,
+  },
+  recordScope: {
+    fontSize: 11,
+    color: Colors.textMuted,
+  },
+  hashText: {
+    fontSize: 10,
+    color: Colors.textMuted,
   },
   tupleRow: {
     flexDirection: 'row',
@@ -251,7 +295,7 @@ const styles = StyleSheet.create({
   },
   tupleText: {
     fontSize: 10,
-    fontFamily: 'monospace',
+    fontWeight: '600',
     color: Colors.textMuted,
   },
   emptyText: {
@@ -261,4 +305,3 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
 });
-

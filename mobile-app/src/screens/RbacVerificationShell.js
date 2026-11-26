@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import Colors from '../theme/colors';
 import api from '../config/api';
@@ -15,9 +14,23 @@ import DbReceiptCard from '../components/DbReceiptCard';
 import MaskedField from '../components/MaskedField';
 
 export default function RbacVerificationShell({ navigation }) {
-  const { user, auditReceipt, redirectUrl, logout } = useAuth();
+  const {
+    user,
+    auditReceipt,
+    redirectUrl,
+    logout,
+    enableScreenPrivacy,
+    disableScreenPrivacy,
+  } = useAuth();
   const [liveProfile, setLiveProfile] = useState(null);
   const [profileError, setProfileError] = useState('');
+
+  useEffect(() => {
+    enableScreenPrivacy?.();
+    return () => {
+      disableScreenPrivacy?.();
+    };
+  }, [enableScreenPrivacy, disableScreenPrivacy]);
 
   useEffect(() => {
     let mounted = true;
@@ -32,7 +45,7 @@ export default function RbacVerificationShell({ navigation }) {
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <View style={styles.safeArea}>
         <View style={styles.centerContainer}>
           <Text style={styles.noSessionText}>No active session found.</Text>
           <TouchableOpacity
@@ -42,7 +55,7 @@ export default function RbacVerificationShell({ navigation }) {
             <Text style={styles.signOutText}>Go to Login</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -50,7 +63,7 @@ export default function RbacVerificationShell({ navigation }) {
   const subRolesList = Array.isArray(identity.subRoles) ? identity.subRoles : [];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -177,7 +190,7 @@ export default function RbacVerificationShell({ navigation }) {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

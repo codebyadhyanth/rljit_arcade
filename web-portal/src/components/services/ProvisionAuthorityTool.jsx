@@ -1,18 +1,60 @@
 import React, { useState } from 'react';
 import api from '../../config/api';
 import DbReceiptCard from '../DbReceiptCard';
-import { ShieldAlert, CheckCircle2, UserPlus, ArrowLeft, Key } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, UserPlus, ArrowLeft } from 'lucide-react';
+
+const DEPARTMENTS = [
+  { value: 'CSE', label: 'Computer Science & Engineering (CSE)' },
+  { value: 'AIML', label: 'AI & Machine Learning (AIML)' },
+  { value: 'DS', label: 'Computer Science & Data Science (DS)' },
+  { value: 'CYBER', label: 'Computer Science & Cyber Security (CYBER)' },
+  { value: 'ECE', label: 'Electronics & Communication (ECE)' },
+  { value: 'ME', label: 'Mechanical Engineering (ME)' },
+  { value: 'ALLIED_SCIENCE', label: 'Allied Science — First Year BE (ALLIED_SCIENCE)' },
+  { value: 'MATH_SCI', label: 'Mathematical Sciences (MATH_SCI)' },
+  { value: 'PHY_CHEM', label: 'Physics & Chemistry (PHY_CHEM)' },
+  { value: 'HUMANITIES', label: 'Humanities & Social Sciences (HUMANITIES)' },
+  { value: 'RND_ACADEMICS', label: 'R&D and Academics (RND_ACADEMICS)' },
+  { value: 'CS', label: 'Computer Science — Legacy (CS)' },
+  { value: 'IS', label: 'Information Science — Legacy (IS)' },
+  { value: 'EC', label: 'Electronics & Comm — Legacy (EC)' },
+  { value: 'CV', label: 'Civil Engineering — Legacy (CV)' },
+  { value: 'AI', label: 'AI & Machine Learning — Legacy (AI)' },
+];
+
+const SECTION_CODES = [
+  { value: 'ADM', label: 'ADM — Admission Section' },
+  { value: 'ACC', label: 'ACC — Accounts & Finance' },
+  { value: 'PLC', label: 'PLC — Placement Cell' },
+  { value: 'SPT', label: 'SPT — Sports & Athletics' },
+  { value: 'MGT', label: 'MGT — Management' },
+  { value: 'PRN', label: 'PRN — Principal Office' },
+  { value: 'EXM', label: 'EXM — Examination Section' },
+];
+
+const FACULTY_CLASSIFICATIONS = [
+  { value: '', label: 'Auto / Default' },
+  { value: 'Professor', label: 'Professor' },
+  { value: 'Associate Professor', label: 'Associate Professor' },
+  { value: 'Assistant Professor', label: 'Assistant Professor' },
+  { value: 'Programmer', label: 'Programmer' },
+  { value: 'Lab Assistant', label: 'Lab Assistant' },
+];
 
 export default function ProvisionAuthorityTool({ onBack }) {
   const [authorityType, setAuthorityType] = useState('REGULAR_ADMIN');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [department, setDepartment] = useState('CS');
+  const [department, setDepartment] = useState('CSE');
   const [sectionCode, setSectionCode] = useState('ADM');
+  const [classification, setClassification] = useState('');
+  const [cabinRoom, setCabinRoom] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+
+  const isAcademicRole = authorityType === 'FACULTY' || authorityType === 'HOD';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,6 +71,8 @@ export default function ProvisionAuthorityTool({ onBack }) {
         department: authorityType !== 'REGULAR_ADMIN' ? department : undefined,
         sectionCode: authorityType === 'REGULAR_ADMIN' ? sectionCode : undefined,
         subRoles: authorityType === 'HOD' ? ['HOD'] : [],
+        classification: isAcademicRole && classification ? classification : undefined,
+        cabinRoom: isAcademicRole && cabinRoom.trim() ? cabinRoom.trim() : undefined,
       };
 
       const res = await api.post('/api/v1/super-admin/provision-authority', payload);
@@ -117,10 +161,11 @@ export default function ProvisionAuthorityTool({ onBack }) {
                 onChange={(e) => setSectionCode(e.target.value)}
                 className="w-full px-3 py-2.5 bg-[#FBFBFC] border border-[#EBEBEF] rounded-xl text-xs text-zinc-900 outline-none focus:border-[#EA580C]"
               >
-                <option value="ADM">ADM — Admission Section</option>
-                <option value="ACC">ACC — Accounts / Finance</option>
-                <option value="PLC">PLC — Placement Cell</option>
-                <option value="SPT">SPT — Sports & Athletics</option>
+                {SECTION_CODES.map((sec) => (
+                  <option key={sec.value} value={sec.value}>
+                    {sec.label}
+                  </option>
+                ))}
               </select>
             </div>
           ) : (
@@ -131,12 +176,11 @@ export default function ProvisionAuthorityTool({ onBack }) {
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full px-3 py-2.5 bg-[#FBFBFC] border border-[#EBEBEF] rounded-xl text-xs text-zinc-900 outline-none focus:border-[#EA580C]"
               >
-                <option value="CS">Computer Science & Engineering (CS)</option>
-                <option value="IS">Information Science (IS)</option>
-                <option value="EC">Electronics & Communication (EC)</option>
-                <option value="ME">Mechanical Engineering (ME)</option>
-                <option value="CV">Civil Engineering (CV)</option>
-                <option value="AI">AI & Machine Learning (AI)</option>
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept.value} value={dept.value}>
+                    {dept.label}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -160,7 +204,7 @@ export default function ProvisionAuthorityTool({ onBack }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="rajesh.cs@rljit.ac.in"
+              placeholder="rajesh.cse@rljit.ac.in"
               className="w-full px-3 py-2.5 bg-[#FBFBFC] border border-[#EBEBEF] rounded-xl text-xs text-zinc-900 outline-none focus:border-[#EA580C]"
               required
             />
@@ -178,6 +222,39 @@ export default function ProvisionAuthorityTool({ onBack }) {
           </div>
         </div>
 
+        {isAcademicRole && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+                Faculty Classification <span className="text-zinc-400 font-normal">(optional)</span>
+              </label>
+              <select
+                value={classification}
+                onChange={(e) => setClassification(e.target.value)}
+                className="w-full px-3 py-2.5 bg-[#FBFBFC] border border-[#EBEBEF] rounded-xl text-xs text-zinc-900 outline-none focus:border-[#EA580C]"
+              >
+                {FACULTY_CLASSIFICATIONS.map((c) => (
+                  <option key={c.value || 'auto'} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+                Cabin Room <span className="text-zinc-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={cabinRoom}
+                onChange={(e) => setCabinRoom(e.target.value)}
+                placeholder="e.g. CSE-CAB-204"
+                className="w-full px-3 py-2.5 bg-[#FBFBFC] border border-[#EBEBEF] rounded-xl text-xs text-zinc-900 outline-none focus:border-[#EA580C]"
+              />
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={loading}
@@ -189,4 +266,3 @@ export default function ProvisionAuthorityTool({ onBack }) {
     </div>
   );
 }
-

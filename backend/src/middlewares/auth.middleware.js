@@ -239,6 +239,54 @@ export function requireBookingInitiator(req, res, next) {
   return next();
 }
 
+function requireSectionRole(sectionCode, errorMessage, subRoleAlias = null) {
+  return function sectionRoleMiddleware(req, res, next) {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const hasAccess =
+      req.user.adminTier === 'SUPER_ADMIN' ||
+      req.user.sectionCode === sectionCode ||
+      (subRoleAlias &&
+        Array.isArray(req.user.subRoles) &&
+        req.user.subRoles.includes(subRoleAlias));
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        error: errorMessage,
+      });
+    }
+    return next();
+  };
+}
+
+/**
+ * Middleware requiring Management authority (SUPER_ADMIN, sectionCode 'MGT', or 'MANAGEMENT' subRole)
+ */
+export const requireManagement = requireSectionRole(
+  'MGT',
+  'Forbidden: Management privileges required',
+  'MANAGEMENT'
+);
+
+/**
+ * Middleware requiring Placement Admin authority (SUPER_ADMIN or sectionCode 'PLC')
+ */
+export const requirePlacementAdmin = requireSectionRole(
+  'PLC',
+  'Forbidden: Placement Cell Admin privileges required'
+);
+
+/**
+ * Middleware requiring Exam Section Admin authority (SUPER_ADMIN or sectionCode 'EXM')
+ */
+export const requireExamAdmin = requireSectionRole(
+  'EXM',
+  'Forbidden: Exam Section Admin privileges required'
+);
+
 export default {
   verifyJWT,
   requireSuperAdmin,
@@ -248,5 +296,8 @@ export default {
   requireFinanceAdmin,
   requirePrincipal,
   requireBookingInitiator,
+  requireManagement,
+  requirePlacementAdmin,
+  requireExamAdmin,
 };
 

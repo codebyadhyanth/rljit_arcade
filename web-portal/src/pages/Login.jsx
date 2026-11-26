@@ -34,11 +34,11 @@ export default function Login() {
 
   // Bootstrap modal state
   const [showBootstrap, setShowBootstrap] = useState(false);
-  const [bootstrapKey, setBootstrapKey] = useState('RLJIT_SUPER_MASTERMIND_BOOTSTRAP_KEY_2026');
-  const [bootFullName, setBootFullName] = useState('Super Admin Mastermind');
-  const [bootEmail, setBootEmail] = useState('superadmin@rljit.ac.in');
-  const [bootPhone, setBootPhone] = useState('+919888877777');
-  const [bootPassword, setBootPassword] = useState('p$4K9!vQ2#xM');
+  const [bootstrapKey, setBootstrapKey] = useState('');
+  const [bootFullName, setBootFullName] = useState('');
+  const [bootEmail, setBootEmail] = useState('');
+  const [bootPhone, setBootPhone] = useState('');
+  const [bootPassword, setBootPassword] = useState('');
   const [bootResult, setBootResult] = useState(null);
   const [bootError, setBootError] = useState('');
 
@@ -253,10 +253,11 @@ export default function Login() {
                       x-bootstrap-key Header
                     </label>
                     <input
-                      type="text"
+                      type="password"
                       value={bootstrapKey}
                       onChange={(e) => setBootstrapKey(e.target.value)}
-                      className="w-full text-xs font-mono p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 outline-none focus:border-[#EA580C]"
+                      placeholder="Enter configured bootstrap secret key"
+                      className="w-full text-xs font-mono p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-[#EA580C]"
                       required
                     />
                   </div>
@@ -268,7 +269,8 @@ export default function Login() {
                       type="text"
                       value={bootFullName}
                       onChange={(e) => setBootFullName(e.target.value)}
-                      className="w-full text-xs p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 outline-none focus:border-[#EA580C]"
+                      placeholder="e.g. Institutional Super Admin"
+                      className="w-full text-xs p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-[#EA580C]"
                       required
                     />
                   </div>
@@ -281,7 +283,8 @@ export default function Login() {
                         type="email"
                         value={bootEmail}
                         onChange={(e) => setBootEmail(e.target.value)}
-                        className="w-full text-xs p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 outline-none focus:border-[#EA580C]"
+                        placeholder="admin@rljit.ac.in"
+                        className="w-full text-xs p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-[#EA580C]"
                         required
                       />
                     </div>
@@ -293,7 +296,8 @@ export default function Login() {
                         type="text"
                         value={bootPhone}
                         onChange={(e) => setBootPhone(e.target.value)}
-                        className="w-full text-xs p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 outline-none focus:border-[#EA580C]"
+                        placeholder="+9198XXXXXXXX"
+                        className="w-full text-xs p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-[#EA580C]"
                         required
                       />
                     </div>
@@ -303,10 +307,11 @@ export default function Login() {
                       Password
                     </label>
                     <input
-                      type="text"
+                      type="password"
                       value={bootPassword}
                       onChange={(e) => setBootPassword(e.target.value)}
-                      className="w-full text-xs font-mono p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 outline-none focus:border-[#EA580C]"
+                      placeholder="Minimum 10 chars (mixed case, digit, symbol)"
+                      className="w-full text-xs font-mono p-2 bg-white border border-[#EBEBEF] rounded-lg text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-[#EA580C]"
                       required
                     />
                   </div>

@@ -1,0 +1,8 @@
+authorityType,fullName,email,phone,sectionCode,subRoles
+REGULAR_ADMIN,Raghavendra Kulkarni,portal.adm@rljit.edu.in,+918197100001,ADM,ADMISSION_OFFICER
+REGULAR_ADMIN,Meenakshi Deshpande,portal.acc@rljit.edu.in,+917892100002,ACC,ACCOUNTS_OFFICER
+REGULAR_ADMIN,Siddharth Nair,portal.plc@rljit.edu.in,+917411100003,PLC,PLACEMENT_OFFICER
+REGULAR_ADMIN,Vikramaditya Gowda,portal.spt@rljit.edu.in,+916361100004,SPT,SPORTS_DIRECTOR
+REGULAR_ADMIN,Prakash Narayan Murthy,portal.mgt@rljit.edu.in,+919845100005,MGT,MANAGEMENT
+REGULAR_ADMIN,Dr. Anand Kumar Joshi,portal.prn@rljit.edu.in,+919880100006,PRN,PRINCIPAL
+REGULAR_ADMIN,Dr. Kavitha Subramanian,portal.exm@rljit.edu.in,+919886100007,EXM,EXAM_CONTROLLER

@@ -1,0 +1,311 @@
+authorityType,fullName,email,phone,department,classification,designation,cabinRoom,subRoles
+FACULTY,Dr. Karthik Natarajan,karthik.natarajan.cse01@rljit.edu.in,+916361100019,CSE,Professor,Professor,CS-101,TEACHER|MENTOR
+FACULTY,Dr. Pragathi Kamath,pragathi.kamath.cse02@rljit.edu.in,+919845100020,CSE,Professor,Professor,CS-102,TEACHER|MENTOR
+FACULTY,Dr. Shreya Chavan,shreya.chavan.cse03@rljit.edu.in,+919880100021,CSE,Professor,Professor,CS-103,TEACHER|MENTOR
+FACULTY,Dr. Yashas Silva,yashas.silva.cse04@rljit.edu.in,+919886100022,CSE,Professor,Professor,CS-104,TEACHER|MENTOR
+FACULTY,Dr. Chaitanya Shenoy,chaitanya.shenoy.cse05@rljit.edu.in,+919900100023,CSE,Professor,Professor,CS-105,TEACHER|MENTOR
+FACULTY,Dr. Lavanya Bhatia,lavanya.bhatia.cse06@rljit.edu.in,+919980100024,CSE,Professor,Professor,CS-106,TEACHER|MENTOR
+FACULTY,Dr. Rahul Gill,rahul.gill.cse07@rljit.edu.in,+919448100025,CSE,Professor,Professor,CS-107,TEACHER|MENTOR
+FACULTY,Dr. Suman Parekh,suman.parekh.cse08@rljit.edu.in,+919449100026,CSE,Professor,Professor,CS-108,TEACHER|MENTOR
+FACULTY,Dr. Lucas Shah,lucas.shah.cse09@rljit.edu.in,+919740100027,CSE,Professor,Professor,CS-109,TEACHER|MENTOR
+FACULTY,Prof. Dhanush Krishnan,dhanush.krishnan.cse10@rljit.edu.in,+919611100028,CSE,Associate Professor,Associate Professor,CS-110,TEACHER|MENTOR
+FACULTY,Prof. Meghana Murthy,meghana.murthy.cse11@rljit.edu.in,+919535100029,CSE,Associate Professor,Associate Professor,CS-111,TEACHER|MENTOR
+FACULTY,Prof. Riya Jadhav,riya.jadhav.cse12@rljit.edu.in,+918861100030,CSE,Associate Professor,Associate Professor,CS-112,TEACHER|MENTOR
+FACULTY,Prof. Tanvi Kim,tanvi.kim.cse13@rljit.edu.in,+918197100031,CSE,Associate Professor,Associate Professor,CS-113,TEACHER|MENTOR
+FACULTY,Prof. Akshata Rodrigues,akshata.rodrigues.cse14@rljit.edu.in,+917892100032,CSE,Associate Professor,Associate Professor,CS-114,TEACHER|MENTOR
+FACULTY,Prof. Girija Khanna,girija.khanna.cse15@rljit.edu.in,+917411100033,CSE,Associate Professor,Associate Professor,CS-115,TEACHER|MENTOR
+FACULTY,Prof. Niharika Mukherjee,niharika.mukherjee.cse16@rljit.edu.in,+916361100034,CSE,Associate Professor,Associate Professor,CS-116,TEACHER|MENTOR
+FACULTY,Prof. Sanjana Goyal,sanjana.goyal.cse17@rljit.edu.in,+919845100035,CSE,Associate Professor,Associate Professor,CS-117,TEACHER|MENTOR
+FACULTY,Prof. Vedanth Singh,vedanth.singh.cse18@rljit.edu.in,+919880100036,CSE,Associate Professor,Associate Professor,CS-118,TEACHER|MENTOR
+FACULTY,Prof. Arjun Varghese,arjun.varghese.cse19@rljit.edu.in,+919886100037,CSE,Associate Professor,Associate Professor,CS-119,TEACHER|MENTOR
+FACULTY,Prof. Jeevitha Deshpande,jeevitha.deshpande.cse20@rljit.edu.in,+919900100038,CSE,Associate Professor,Associate Professor,CS-120,TEACHER|MENTOR
+FACULTY,Prof. Pradeep Wodeyar,pradeep.wodeyar.cse21@rljit.edu.in,+919980100039,CSE,Associate Professor,Associate Professor,CS-121,TEACHER|MENTOR
+FACULTY,Prof. Shivani Mistry,shivani.mistry.cse22@rljit.edu.in,+919448100040,CSE,Associate Professor,Associate Professor,CS-122,TEACHER|MENTOR
+FACULTY,Prof. Vivek George,vivek.george.cse23@rljit.edu.in,+919449100041,CSE,Assistant Professor,Assistant Professor,CS-123,TEACHER|MENTOR
+FACULTY,Prof. Bindu Ahluwalia,bindu.ahluwalia.cse24@rljit.edu.in,+919740100042,CSE,Assistant Professor,Assistant Professor,CS-124,TEACHER|MENTOR
+FACULTY,Prof. Lakshmi Das,lakshmi.das.cse25@rljit.edu.in,+919611100043,CSE,Assistant Professor,Assistant Professor,CS-125,TEACHER|MENTOR
+FACULTY,Prof. Raghav Sinha,raghav.sinha.cse26@rljit.edu.in,+919535100044,CSE,Assistant Professor,Assistant Professor,CS-201,TEACHER|MENTOR
+FACULTY,Prof. Suhas Menon,suhas.menon.cse27@rljit.edu.in,+918861100045,CSE,Assistant Professor,Assistant Professor,CS-202,TEACHER|MENTOR
+FACULTY,Prof. Ethan Nambiar,ethan.nambiar.cse28@rljit.edu.in,+918197100046,CSE,Assistant Professor,Assistant Professor,CS-203,TEACHER|MENTOR
+FACULTY,Prof. Devika Patil,devika.patil.cse29@rljit.edu.in,+917892100047,CSE,Assistant Professor,Assistant Professor,CS-204,TEACHER|MENTOR
+FACULTY,Prof. Mayur Sastry,mayur.sastry.cse30@rljit.edu.in,+917411100048,CSE,Assistant Professor,Assistant Professor,CS-205,TEACHER|MENTOR
+FACULTY,Prof. Rishabh Virk,rishabh.virk.cse31@rljit.edu.in,+916361100049,CSE,Assistant Professor,Assistant Professor,CS-206,TEACHER|MENTOR
+FACULTY,Prof. Tanmay Qureshi,tanmay.qureshi.cse32@rljit.edu.in,+919845100050,CSE,Assistant Professor,Assistant Professor,CS-207,TEACHER|MENTOR
+FACULTY,Prof. Akash Dutta,akash.dutta.cse33@rljit.edu.in,+919880100051,CSE,Assistant Professor,Assistant Professor,CS-208,TEACHER|MENTOR
+FACULTY,Prof. Gayathri Mishra,gayathri.mishra.cse34@rljit.edu.in,+919886100052,CSE,Assistant Professor,Assistant Professor,CS-209,TEACHER|MENTOR
+FACULTY,Prof. Nikhil Choudhary,nikhil.choudhary.cse35@rljit.edu.in,+919900100053,CSE,Assistant Professor,Assistant Professor,CS-210,TEACHER|MENTOR
+FACULTY,Prof. Sandeep Iyengar,sandeep.iyengar.cse36@rljit.edu.in,+919980100054,CSE,Assistant Professor,Assistant Professor,CS-211,TEACHER|MENTOR
+FACULTY,Prof. Varun Sawant,varun.sawant.cse37@rljit.edu.in,+919448100055,CSE,Assistant Professor,Assistant Professor,CS-212,TEACHER|MENTOR
+FACULTY,Prof. Apoorva Rao,apoorva.rao.cse38@rljit.edu.in,+919449100056,CSE,Assistant Professor,Assistant Professor,CS-213,TEACHER|MENTOR
+FACULTY,Prof. Jayanth Nayak,jayanth.nayak.cse39@rljit.edu.in,+919740100057,CSE,Assistant Professor,Assistant Professor,CS-214,TEACHER|MENTOR
+FACULTY,Prof. Pooja Dhawan,pooja.dhawan.cse40@rljit.edu.in,+919611100058,CSE,Assistant Professor,Assistant Professor,CS-215,TEACHER|MENTOR
+FACULTY,Prof. Shilpa Kapoor,shilpa.kapoor.cse41@rljit.edu.in,+919535100059,CSE,Assistant Professor,Assistant Professor,CS-216,TEACHER|MENTOR
+FACULTY,Prof. Vishnu Vyas,vishnu.vyas.cse42@rljit.edu.in,+918861100060,CSE,Assistant Professor,Assistant Professor,CS-217,TEACHER|MENTOR
+FACULTY,Prof. Bharath Agarwal,bharath.agarwal.cse43@rljit.edu.in,+918197100061,CSE,Assistant Professor,Assistant Professor,CS-218,TEACHER|MENTOR
+FACULTY,Prof. Kruthi Rajan,kruthi.rajan.cse44@rljit.edu.in,+917892100062,CSE,Assistant Professor,Assistant Professor,CS-219,TEACHER|MENTOR
+FACULTY,Prof. Rachana Shetty,rachana.shetty.cse45@rljit.edu.in,+917411100063,CSE,Assistant Professor,Assistant Professor,CS-220,TEACHER|MENTOR
+FACULTY,Prof. Srishti Kamble,srishti.kamble.cse46@rljit.edu.in,+916361100064,CSE,Assistant Professor,Assistant Professor,CS-221,TEACHER|MENTOR
+FACULTY,Prof. Oliver Nguyen,oliver.nguyen.cse47@rljit.edu.in,+919845100065,CSE,Assistant Professor,Assistant Professor,CS-222,TEACHER|MENTOR
+FACULTY,Prof. Deeksha Pai,deeksha.pai.cse48@rljit.edu.in,+919880100066,CSE,Assistant Professor,Assistant Professor,CS-223,TEACHER|MENTOR
+FACULTY,Prof. Manoj Arora,manoj.arora.cse49@rljit.edu.in,+919886100067,CSE,Assistant Professor,Assistant Professor,CS-224,TEACHER|MENTOR
+FACULTY,Prof. Revathi Kaur,revathi.kaur.cse50@rljit.edu.in,+919900100068,CSE,Assistant Professor,Assistant Professor,CS-225,TEACHER|MENTOR
+FACULTY,Prof. Swathi Kothari,swathi.kothari.cse51@rljit.edu.in,+919980100069,CSE,Assistant Professor,Assistant Professor,CS-301,TEACHER|MENTOR
+FACULTY,Prof. Aishwarya Patel,aishwarya.patel.cse52@rljit.edu.in,+919448100070,CSE,Assistant Professor,Assistant Professor,CS-302,TEACHER|MENTOR
+FACULTY,Prof. Gaurav Venkatesh,gaurav.venkatesh.cse53@rljit.edu.in,+919449100071,CSE,Assistant Professor,Assistant Professor,CS-303,TEACHER|MENTOR
+FACULTY,Neha Joshi,neha.joshi.cse54@rljit.edu.in,+919740100072,CSE,Programmer,System Programmer,CS-304,LAB_STAFF
+FACULTY,Samarth More,samarth.more.cse55@rljit.edu.in,+919611100073,CSE,Programmer,System Programmer,CS-305,LAB_STAFF
+FACULTY,Varsha Chen,varsha.chen.cse56@rljit.edu.in,+919535100074,CSE,Programmer,System Programmer,CS-306,LAB_STAFF
+FACULTY,Anusha DSouza,anusha.dsouza.cse57@rljit.edu.in,+918861100075,CSE,Programmer,System Programmer,CS-307,LAB_STAFF
+FACULTY,Ishaan Sethi,ishaan.sethi.cse58@rljit.edu.in,+918197100076,CSE,Programmer,System Programmer,CS-308,LAB_STAFF
+FACULTY,Pavithra Sen,pavithra.sen.cse59@rljit.edu.in,+917892100077,CSE,Programmer,System Programmer,CS-309,LAB_STAFF
+FACULTY,Shashank Solanki,shashank.solanki.cse60@rljit.edu.in,+917411100078,CSE,Lab Assistant,Senior Lab Assistant,CS-310,LAB_STAFF
+FACULTY,Vishal Gupta,vishal.gupta.cse61@rljit.edu.in,+916361100079,CSE,Lab Assistant,Senior Lab Assistant,CS-311,LAB_STAFF
+FACULTY,Bhavana Kurian,bhavana.kurian.cse62@rljit.edu.in,+919845100080,CSE,Lab Assistant,Senior Lab Assistant,CS-312,LAB_STAFF
+FACULTY,Krishna Reddy,krishna.reddy.cse63@rljit.edu.in,+919880100081,CSE,Lab Assistant,Senior Lab Assistant,CS-313,LAB_STAFF
+FACULTY,Puneeth Urs,puneeth.urs.cse64@rljit.edu.in,+919886100082,CSE,Lab Assistant,Senior Lab Assistant,CS-314,LAB_STAFF
+FACULTY,Srinivas Zaveri,srinivas.zaveri.cse65@rljit.edu.in,+919900100083,CSE,Lab Assistant,Senior Lab Assistant,CS-315,LAB_STAFF
+FACULTY,Dr. Noah Mathew,noah.mathew.aiml01@rljit.edu.in,+919980100084,AIML,Professor,Professor,AI-101,TEACHER|MENTOR
+FACULTY,Dr. Deepika Sarkar,deepika.sarkar.aiml02@rljit.edu.in,+919448100085,AIML,Professor,Professor,AI-102,TEACHER|MENTOR
+FACULTY,Dr. Manish Pandey,manish.pandey.aiml03@rljit.edu.in,+919449100086,AIML,Professor,Professor,AI-103,TEACHER|MENTOR
+FACULTY,Dr. Ravi Thakur,ravi.thakur.aiml04@rljit.edu.in,+919740100087,AIML,Professor,Professor,AI-104,TEACHER|MENTOR
+FACULTY,Prof. Swapna Nair,swapna.nair.aiml05@rljit.edu.in,+919611100088,AIML,Associate Professor,Associate Professor,AI-105,TEACHER|MENTOR
+FACULTY,Prof. Aditya Salunkhe,aditya.salunkhe.aiml06@rljit.edu.in,+919535100089,AIML,Associate Professor,Associate Professor,AI-106,TEACHER|MENTOR
+FACULTY,Prof. Ganesh Gowda,ganesh.gowda.aiml07@rljit.edu.in,+918861100090,AIML,Associate Professor,Associate Professor,AI-107,TEACHER|MENTOR
+FACULTY,Prof. Navya Prasad,navya.prasad.aiml08@rljit.edu.in,+918197100091,AIML,Associate Professor,Associate Professor,AI-108,TEACHER|MENTOR
+FACULTY,Prof. Sakshi Sandhu,sakshi.sandhu.aiml09@rljit.edu.in,+917892100092,AIML,Associate Professor,Associate Professor,AI-109,TEACHER|MENTOR
+FACULTY,Prof. Vaishnavi Siddiqui,vaishnavi.siddiqui.aiml10@rljit.edu.in,+917411100093,AIML,Associate Professor,Associate Professor,AI-110,TEACHER|MENTOR
+FACULTY,Prof. Ankith Alvarez,ankith.alvarez.aiml11@rljit.edu.in,+916361100094,AIML,Assistant Professor,Assistant Professor,AI-111,TEACHER|MENTOR
+FACULTY,Prof. Indira Fernandes,indira.fernandes.aiml12@rljit.edu.in,+919845100095,AIML,Assistant Professor,Assistant Professor,AI-112,TEACHER|MENTOR
+FACULTY,Prof. Pavan Bedi,pavan.bedi.aiml13@rljit.edu.in,+919880100096,AIML,Assistant Professor,Assistant Professor,AI-113,TEACHER|MENTOR
+FACULTY,Prof. Sharath Bose,sharath.bose.aiml14@rljit.edu.in,+919886100097,AIML,Assistant Professor,Assistant Professor,AI-114,TEACHER|MENTOR
+FACULTY,Prof. Vinod Rathore,vinod.rathore.aiml15@rljit.edu.in,+919900100098,AIML,Assistant Professor,Assistant Professor,AI-115,TEACHER|MENTOR
+FACULTY,Prof. Bhargav Verma,bhargav.verma.aiml16@rljit.edu.in,+919980100099,AIML,Assistant Professor,Assistant Professor,AI-116,TEACHER|MENTOR
+FACULTY,Prof. Komal Pillai,komal.pillai.aiml17@rljit.edu.in,+919448100100,AIML,Assistant Professor,Assistant Professor,AI-117,TEACHER|MENTOR
+FACULTY,Prof. Priya Naidu,priya.naidu.aiml18@rljit.edu.in,+919449100101,AIML,Assistant Professor,Assistant Professor,AI-118,TEACHER|MENTOR
+FACULTY,Prof. Spoorthi Shastri,spoorthi.shastri.aiml19@rljit.edu.in,+919740100102,AIML,Assistant Professor,Assistant Professor,AI-119,TEACHER|MENTOR
+FACULTY,Prof. Liam Walia,liam.walia.aiml20@rljit.edu.in,+919611100103,AIML,Assistant Professor,Assistant Professor,AI-120,TEACHER|MENTOR
+FACULTY,Prof. Deepak Thomas,deepak.thomas.aiml21@rljit.edu.in,+919535100104,AIML,Assistant Professor,Assistant Professor,AI-121,TEACHER|MENTOR
+FACULTY,Prof. Manasa Banerjee,manasa.banerjee.aiml22@rljit.edu.in,+918861100105,AIML,Assistant Professor,Assistant Professor,AI-122,TEACHER|MENTOR
+FACULTY,Prof. Rathan Tiwari,rathan.tiwari.aiml23@rljit.edu.in,+918197100106,AIML,Assistant Professor,Assistant Professor,AI-123,TEACHER|MENTOR
+FACULTY,Surya Yadav,surya.yadav.aiml24@rljit.edu.in,+917892100107,AIML,Programmer,System Programmer,AI-124,LAB_STAFF
+FACULTY,Aditi Iyer,aditi.iyer.aiml25@rljit.edu.in,+917411100108,AIML,Programmer,System Programmer,AI-125,LAB_STAFF
+FACULTY,Gagan Kadam,gagan.kadam.aiml26@rljit.edu.in,+916361100109,AIML,Programmer,System Programmer,AI-201,LAB_STAFF
+FACULTY,Nandan Kulkarni,nandan.kulkarni.aiml27@rljit.edu.in,+919845100110,AIML,Lab Assistant,Senior Lab Assistant,AI-202,LAB_STAFF
+FACULTY,Sai Raju,sai.raju.aiml28@rljit.edu.in,+919880100111,AIML,Lab Assistant,Senior Lab Assistant,AI-203,LAB_STAFF
+FACULTY,Dr. Vaibhav Grewal,vaibhav.grewal.ds01@rljit.edu.in,+919886100112,DS,Professor,Professor,DS-101,TEACHER|MENTOR
+FACULTY,Dr. Anjali Khan,anjali.khan.ds02@rljit.edu.in,+919900100113,DS,Professor,Professor,DS-102,TEACHER|MENTOR
+FACULTY,Dr. Hitesh Bhattacharya,hitesh.bhattacharya.ds03@rljit.edu.in,+919980100114,DS,Professor,Professor,DS-103,TEACHER|MENTOR
+FACULTY,Dr. Pallavi Bansal,pallavi.bansal.ds04@rljit.edu.in,+919448100115,DS,Professor,Professor,DS-104,TEACHER|MENTOR
+FACULTY,Prof. Shankar Natarajan,shankar.natarajan.ds05@rljit.edu.in,+919449100116,DS,Associate Professor,Associate Professor,DS-105,TEACHER|MENTOR
+FACULTY,Prof. Vinay Kamath,vinay.kamath.ds06@rljit.edu.in,+919740100117,DS,Associate Professor,Associate Professor,DS-106,TEACHER|MENTOR
+FACULTY,Prof. Avinash Chavan,avinash.chavan.ds07@rljit.edu.in,+919611100118,DS,Associate Professor,Associate Professor,DS-107,TEACHER|MENTOR
+FACULTY,Prof. Kishan Silva,kishan.silva.ds08@rljit.edu.in,+919535100119,DS,Associate Professor,Associate Professor,DS-108,TEACHER|MENTOR
+FACULTY,Prof. Preethi Shenoy,preethi.shenoy.ds09@rljit.edu.in,+918861100120,DS,Associate Professor,Associate Professor,DS-109,TEACHER|MENTOR
+FACULTY,Prof. Sneha Bhatia,sneha.bhatia.ds10@rljit.edu.in,+918197100121,DS,Associate Professor,Associate Professor,DS-110,TEACHER|MENTOR
+FACULTY,Prof. Zoya Gill,zoya.gill.ds11@rljit.edu.in,+917892100122,DS,Assistant Professor,Assistant Professor,DS-111,TEACHER|MENTOR
+FACULTY,Prof. Darshan Parekh,darshan.parekh.ds12@rljit.edu.in,+917411100123,DS,Assistant Professor,Assistant Professor,DS-112,TEACHER|MENTOR
+FACULTY,Prof. Mahesh Shah,mahesh.shah.ds13@rljit.edu.in,+916361100124,DS,Assistant Professor,Assistant Professor,DS-113,TEACHER|MENTOR
+FACULTY,Prof. Rashmi Krishnan,rashmi.krishnan.ds14@rljit.edu.in,+919845100125,DS,Assistant Professor,Assistant Professor,DS-114,TEACHER|MENTOR
+FACULTY,Prof. Suraj Murthy,suraj.murthy.ds15@rljit.edu.in,+919880100126,DS,Assistant Professor,Assistant Professor,DS-115,TEACHER|MENTOR
+FACULTY,Prof. Aarav Jadhav,aarav.jadhav.ds16@rljit.edu.in,+919886100127,DS,Assistant Professor,Assistant Professor,DS-116,TEACHER|MENTOR
+FACULTY,Prof. Farhan Kim,farhan.kim.ds17@rljit.edu.in,+919900100128,DS,Assistant Professor,Assistant Professor,DS-117,TEACHER|MENTOR
+FACULTY,Prof. Namratha Rodrigues,namratha.rodrigues.ds18@rljit.edu.in,+919980100129,DS,Assistant Professor,Assistant Professor,DS-118,TEACHER|MENTOR
+FACULTY,Prof. Sahana Khanna,sahana.khanna.ds19@rljit.edu.in,+919448100130,DS,Assistant Professor,Assistant Professor,DS-119,TEACHER|MENTOR
+FACULTY,Prof. Uday Mukherjee,uday.mukherjee.ds20@rljit.edu.in,+919449100131,DS,Assistant Professor,Assistant Professor,DS-120,TEACHER|MENTOR
+FACULTY,Prof. Anirudh Goyal,anirudh.goyal.ds21@rljit.edu.in,+919740100132,DS,Assistant Professor,Assistant Professor,DS-121,TEACHER|MENTOR
+FACULTY,Prof. Hemant Singh,hemant.singh.ds22@rljit.edu.in,+919611100133,DS,Assistant Professor,Assistant Professor,DS-122,TEACHER|MENTOR
+FACULTY,Prof. Omkar Varghese,omkar.varghese.ds23@rljit.edu.in,+919535100134,DS,Assistant Professor,Assistant Professor,DS-123,TEACHER|MENTOR
+FACULTY,Shalini Deshpande,shalini.deshpande.ds24@rljit.edu.in,+918861100135,DS,Programmer,System Programmer,DS-124,LAB_STAFF
+FACULTY,Vikram Wodeyar,vikram.wodeyar.ds25@rljit.edu.in,+918197100136,DS,Programmer,System Programmer,DS-125,LAB_STAFF
+FACULTY,Atharva Mistry,atharva.mistry.ds26@rljit.edu.in,+917892100137,DS,Programmer,System Programmer,DS-201,LAB_STAFF
+FACULTY,Keerthana George,keerthana.george.ds27@rljit.edu.in,+917411100138,DS,Lab Assistant,Senior Lab Assistant,DS-202,LAB_STAFF
+FACULTY,Prateek Ahluwalia,prateek.ahluwalia.ds28@rljit.edu.in,+916361100139,DS,Lab Assistant,Senior Lab Assistant,DS-203,LAB_STAFF
+FACULTY,Dr. Sindhu Das,sindhu.das.cyber01@rljit.edu.in,+919845100140,CYBER,Professor,Professor,CY-101,TEACHER|MENTOR
+FACULTY,Dr. Zain Sinha,zain.sinha.cyber02@rljit.edu.in,+919880100141,CYBER,Professor,Professor,CY-102,TEACHER|MENTOR
+FACULTY,Dr. Chinmay Menon,chinmay.menon.cyber03@rljit.edu.in,+919886100142,CYBER,Professor,Professor,CY-103,TEACHER|MENTOR
+FACULTY,Dr. Madhuri Nambiar,madhuri.nambiar.cyber04@rljit.edu.in,+919900100143,CYBER,Professor,Professor,CY-104,TEACHER|MENTOR
+FACULTY,Prof. Ramesh Patil,ramesh.patil.cyber05@rljit.edu.in,+919980100144,CYBER,Associate Professor,Associate Professor,CY-105,TEACHER|MENTOR
+FACULTY,Prof. Supriya Sastry,supriya.sastry.cyber06@rljit.edu.in,+919448100145,CYBER,Associate Professor,Associate Professor,CY-106,TEACHER|MENTOR
+FACULTY,Prof. Maya Virk,maya.virk.cyber07@rljit.edu.in,+919449100146,CYBER,Associate Professor,Associate Professor,CY-107,TEACHER|MENTOR
+FACULTY,Prof. Eshwar Qureshi,eshwar.qureshi.cyber08@rljit.edu.in,+919740100147,CYBER,Associate Professor,Associate Professor,CY-108,TEACHER|MENTOR
+FACULTY,Prof. Nagaraj Dutta,nagaraj.dutta.cyber09@rljit.edu.in,+919611100148,CYBER,Associate Professor,Associate Professor,CY-109,TEACHER|MENTOR
+FACULTY,Prof. Sagar Mishra,sagar.mishra.cyber10@rljit.edu.in,+919535100149,CYBER,Associate Professor,Associate Professor,CY-110,TEACHER|MENTOR
+FACULTY,Prof. Tejaswini Choudhary,tejaswini.choudhary.cyber11@rljit.edu.in,+918861100150,CYBER,Assistant Professor,Assistant Professor,CY-111,TEACHER|MENTOR
+FACULTY,Prof. Ananya Iyengar,ananya.iyengar.cyber12@rljit.edu.in,+918197100151,CYBER,Assistant Professor,Assistant Professor,CY-112,TEACHER|MENTOR
+FACULTY,Prof. Harshitha Sawant,harshitha.sawant.cyber13@rljit.edu.in,+917892100152,CYBER,Assistant Professor,Assistant Professor,CY-113,TEACHER|MENTOR
+FACULTY,Prof. Nithya Rao,nithya.rao.cyber14@rljit.edu.in,+917411100153,CYBER,Assistant Professor,Assistant Professor,CY-114,TEACHER|MENTOR
+FACULTY,Prof. Sathvik Nayak,sathvik.nayak.cyber15@rljit.edu.in,+916361100154,CYBER,Assistant Professor,Assistant Professor,CY-115,TEACHER|MENTOR
+FACULTY,Prof. Vijay Dhawan,vijay.dhawan.cyber16@rljit.edu.in,+919845100155,CYBER,Assistant Professor,Assistant Professor,CY-116,TEACHER|MENTOR
+FACULTY,Prof. Ashwini Kapoor,ashwini.kapoor.cyber17@rljit.edu.in,+919880100156,CYBER,Assistant Professor,Assistant Professor,CY-117,TEACHER|MENTOR
+FACULTY,Prof. Kavyashree Vyas,kavyashree.vyas.cyber18@rljit.edu.in,+919886100157,CYBER,Assistant Professor,Assistant Professor,CY-118,TEACHER|MENTOR
+FACULTY,Prof. Prashanth Agarwal,prashanth.agarwal.cyber19@rljit.edu.in,+919900100158,CYBER,Assistant Professor,Assistant Professor,CY-119,TEACHER|MENTOR
+FACULTY,Prof. Siddharth Rajan,siddharth.rajan.cyber20@rljit.edu.in,+919980100159,CYBER,Assistant Professor,Assistant Professor,CY-120,TEACHER|MENTOR
+FACULTY,Prof. Yogesh Shetty,yogesh.shetty.cyber21@rljit.edu.in,+919448100160,CYBER,Assistant Professor,Assistant Professor,CY-121,TEACHER|MENTOR
+FACULTY,Prof. Chetan Kamble,chetan.kamble.cyber22@rljit.edu.in,+919449100161,CYBER,Assistant Professor,Assistant Professor,CY-122,TEACHER|MENTOR
+FACULTY,Prof. Lohith Nguyen,lohith.nguyen.cyber23@rljit.edu.in,+919740100162,CYBER,Assistant Professor,Assistant Professor,CY-123,TEACHER|MENTOR
+FACULTY,Rakshitha Pai,rakshitha.pai.cyber24@rljit.edu.in,+919611100163,CYBER,Programmer,System Programmer,CY-124,LAB_STAFF
+FACULTY,Sunil Arora,sunil.arora.cyber25@rljit.edu.in,+919535100164,CYBER,Programmer,System Programmer,CY-125,LAB_STAFF
+FACULTY,Emma Kaur,emma.kaur.cyber26@rljit.edu.in,+918861100165,CYBER,Programmer,System Programmer,CY-201,LAB_STAFF
+FACULTY,Disha Kothari,disha.kothari.cyber27@rljit.edu.in,+918197100166,CYBER,Lab Assistant,Senior Lab Assistant,CY-202,LAB_STAFF
+FACULTY,Monika Patel,monika.patel.cyber28@rljit.edu.in,+917892100167,CYBER,Lab Assistant,Senior Lab Assistant,CY-203,LAB_STAFF
+FACULTY,Dr. Rohit Venkatesh,rohit.venkatesh.ece01@rljit.edu.in,+917411100168,ECE,Professor,Professor,EC-101,TEACHER|MENTOR
+FACULTY,Dr. Tejas Joshi,tejas.joshi.ece02@rljit.edu.in,+916361100169,ECE,Professor,Professor,EC-102,TEACHER|MENTOR
+FACULTY,Dr. Amulya More,amulya.more.ece03@rljit.edu.in,+919845100170,ECE,Professor,Professor,EC-103,TEACHER|MENTOR
+FACULTY,Dr. Harish Chen,harish.chen.ece04@rljit.edu.in,+919880100171,ECE,Professor,Professor,EC-104,TEACHER|MENTOR
+FACULTY,Dr. Nishanth DSouza,nishanth.dsouza.ece05@rljit.edu.in,+919886100172,ECE,Professor,Professor,EC-105,TEACHER|MENTOR
+FACULTY,Prof. Santhosh Sethi,santhosh.sethi.ece06@rljit.edu.in,+919900100173,ECE,Associate Professor,Associate Professor,EC-106,TEACHER|MENTOR
+FACULTY,Prof. Vignesh Sen,vignesh.sen.ece07@rljit.edu.in,+919980100174,ECE,Associate Professor,Associate Professor,EC-107,TEACHER|MENTOR
+FACULTY,Prof. Ashish Solanki,ashish.solanki.ece08@rljit.edu.in,+919448100175,ECE,Associate Professor,Associate Professor,EC-108,TEACHER|MENTOR
+FACULTY,Prof. Kavya Gupta,kavya.gupta.ece09@rljit.edu.in,+919449100176,ECE,Associate Professor,Associate Professor,EC-109,TEACHER|MENTOR
+FACULTY,Prof. Pranav Kurian,pranav.kurian.ece10@rljit.edu.in,+919740100177,ECE,Associate Professor,Associate Professor,EC-110,TEACHER|MENTOR
+FACULTY,Prof. Shruthi Reddy,shruthi.reddy.ece11@rljit.edu.in,+919611100178,ECE,Associate Professor,Associate Professor,EC-111,TEACHER|MENTOR
+FACULTY,Prof. Yashwanth Urs,yashwanth.urs.ece12@rljit.edu.in,+919535100179,ECE,Associate Professor,Associate Professor,EC-112,TEACHER|MENTOR
+FACULTY,Prof. Chandan Zaveri,chandan.zaveri.ece13@rljit.edu.in,+918861100180,ECE,Assistant Professor,Assistant Professor,EC-113,TEACHER|MENTOR
+FACULTY,Prof. Likith Mathew,likith.mathew.ece14@rljit.edu.in,+918197100181,ECE,Assistant Professor,Assistant Professor,EC-114,TEACHER|MENTOR
+FACULTY,Prof. Rajesh Sarkar,rajesh.sarkar.ece15@rljit.edu.in,+917892100182,ECE,Assistant Professor,Assistant Professor,EC-115,TEACHER|MENTOR
+FACULTY,Prof. Sumanth Pandey,sumanth.pandey.ece16@rljit.edu.in,+917411100183,ECE,Assistant Professor,Assistant Professor,EC-116,TEACHER|MENTOR
+FACULTY,Prof. Sophia Thakur,sophia.thakur.ece17@rljit.edu.in,+916361100184,ECE,Assistant Professor,Assistant Professor,EC-117,TEACHER|MENTOR
+FACULTY,Prof. Divya Nair,divya.nair.ece18@rljit.edu.in,+919845100185,ECE,Assistant Professor,Assistant Professor,EC-118,TEACHER|MENTOR
+FACULTY,Prof. Mithun Salunkhe,mithun.salunkhe.ece19@rljit.edu.in,+919880100186,ECE,Assistant Professor,Assistant Professor,EC-119,TEACHER|MENTOR
+FACULTY,Prof. Rohan Gowda,rohan.gowda.ece20@rljit.edu.in,+919886100187,ECE,Assistant Professor,Assistant Professor,EC-120,TEACHER|MENTOR
+FACULTY,Prof. Tarun Prasad,tarun.prasad.ece21@rljit.edu.in,+919900100188,ECE,Assistant Professor,Assistant Professor,EC-121,TEACHER|MENTOR
+FACULTY,Prof. Amogh Sandhu,amogh.sandhu.ece22@rljit.edu.in,+919980100189,ECE,Assistant Professor,Assistant Professor,EC-122,TEACHER|MENTOR
+FACULTY,Prof. Gowtham Siddiqui,gowtham.siddiqui.ece23@rljit.edu.in,+919448100190,ECE,Assistant Professor,Assistant Professor,EC-123,TEACHER|MENTOR
+FACULTY,Prof. Niranjan Roy,niranjan.roy.ece24@rljit.edu.in,+919449100191,ECE,Assistant Professor,Assistant Professor,EC-124,TEACHER|MENTOR
+FACULTY,Prof. Sanjay Chauhan,sanjay.chauhan.ece25@rljit.edu.in,+919740100192,ECE,Assistant Professor,Assistant Professor,EC-125,TEACHER|MENTOR
+FACULTY,Prof. Vidya Balasubramanian,vidya.balasubramanian.ece26@rljit.edu.in,+919611100193,ECE,Assistant Professor,Assistant Professor,EC-201,TEACHER|MENTOR
+FACULTY,Arpitha Acharya,arpitha.acharya.ece27@rljit.edu.in,+919535100194,ECE,Programmer,System Programmer,EC-202,LAB_STAFF
+FACULTY,Karthik Rane,karthik.rane.ece28@rljit.edu.in,+918861100195,ECE,Programmer,System Programmer,EC-203,LAB_STAFF
+FACULTY,Pragathi Sharma,pragathi.sharma.ece29@rljit.edu.in,+918197100196,ECE,Lab Assistant,Senior Lab Assistant,EC-204,LAB_STAFF
+FACULTY,Shreya Prabhu,shreya.prabhu.ece30@rljit.edu.in,+917892100197,ECE,Lab Assistant,Senior Lab Assistant,EC-205,LAB_STAFF
+FACULTY,Yashas Chopra,yashas.chopra.ece31@rljit.edu.in,+917411100198,ECE,Lab Assistant,Senior Lab Assistant,EC-206,LAB_STAFF
+FACULTY,Chaitanya Malhotra,chaitanya.malhotra.ece32@rljit.edu.in,+916361100199,ECE,Lab Assistant,Senior Lab Assistant,EC-207,LAB_STAFF
+FACULTY,Dr. Lavanya Trivedi,lavanya.trivedi.me01@rljit.edu.in,+919845100200,ME,Professor,Professor,ME-101,TEACHER|MENTOR
+FACULTY,Dr. Rahul Mehta,rahul.mehta.me02@rljit.edu.in,+919880100201,ME,Professor,Professor,ME-102,TEACHER|MENTOR
+FACULTY,Dr. Suman Sundaram,suman.sundaram.me03@rljit.edu.in,+919886100202,ME,Professor,Professor,ME-103,TEACHER|MENTOR
+FACULTY,Dr. Lucas Bhat,lucas.bhat.me04@rljit.edu.in,+919900100203,ME,Professor,Professor,ME-104,TEACHER|MENTOR
+FACULTY,Dr. Dhanush Shinde,dhanush.shinde.me05@rljit.edu.in,+919980100204,ME,Professor,Professor,ME-105,TEACHER|MENTOR
+FACULTY,Prof. Meghana Tanaka,meghana.tanaka.me06@rljit.edu.in,+919448100205,ME,Associate Professor,Associate Professor,ME-106,TEACHER|MENTOR
+FACULTY,Prof. Riya Mallya,riya.mallya.me07@rljit.edu.in,+919449100206,ME,Associate Professor,Associate Professor,ME-107,TEACHER|MENTOR
+FACULTY,Prof. Tanvi Tandon,tanvi.tandon.me08@rljit.edu.in,+919740100207,ME,Associate Professor,Associate Professor,ME-108,TEACHER|MENTOR
+FACULTY,Prof. Akshata Chatterjee,akshata.chatterjee.me09@rljit.edu.in,+919611100208,ME,Associate Professor,Associate Professor,ME-109,TEACHER|MENTOR
+FACULTY,Prof. Girija Jain,girija.jain.me10@rljit.edu.in,+919535100209,ME,Associate Professor,Associate Professor,ME-110,TEACHER|MENTOR
+FACULTY,Prof. Niharika Kumar,niharika.kumar.me11@rljit.edu.in,+918861100210,ME,Associate Professor,Associate Professor,ME-111,TEACHER|MENTOR
+FACULTY,Prof. Sanjana Subramanian,sanjana.subramanian.me12@rljit.edu.in,+918197100211,ME,Associate Professor,Associate Professor,ME-112,TEACHER|MENTOR
+FACULTY,Prof. Vedanth Hegde,vedanth.hegde.me13@rljit.edu.in,+917892100212,ME,Assistant Professor,Assistant Professor,ME-113,TEACHER|MENTOR
+FACULTY,Prof. Arjun Pawar,arjun.pawar.me14@rljit.edu.in,+917411100213,ME,Assistant Professor,Assistant Professor,ME-114,TEACHER|MENTOR
+FACULTY,Prof. Jeevitha Alvarez,jeevitha.alvarez.me15@rljit.edu.in,+916361100214,ME,Assistant Professor,Assistant Professor,ME-115,TEACHER|MENTOR
+FACULTY,Prof. Pradeep Fernandes,pradeep.fernandes.me16@rljit.edu.in,+919845100215,ME,Assistant Professor,Assistant Professor,ME-116,TEACHER|MENTOR
+FACULTY,Prof. Shivani Bedi,shivani.bedi.me17@rljit.edu.in,+919880100216,ME,Assistant Professor,Assistant Professor,ME-117,TEACHER|MENTOR
+FACULTY,Prof. Vivek Bose,vivek.bose.me18@rljit.edu.in,+919886100217,ME,Assistant Professor,Assistant Professor,ME-118,TEACHER|MENTOR
+FACULTY,Prof. Bindu Rathore,bindu.rathore.me19@rljit.edu.in,+919900100218,ME,Assistant Professor,Assistant Professor,ME-119,TEACHER|MENTOR
+FACULTY,Prof. Lakshmi Verma,lakshmi.verma.me20@rljit.edu.in,+919980100219,ME,Assistant Professor,Assistant Professor,ME-120,TEACHER|MENTOR
+FACULTY,Prof. Raghav Pillai,raghav.pillai.me21@rljit.edu.in,+919448100220,ME,Assistant Professor,Assistant Professor,ME-121,TEACHER|MENTOR
+FACULTY,Prof. Suhas Naidu,suhas.naidu.me22@rljit.edu.in,+919449100221,ME,Assistant Professor,Assistant Professor,ME-122,TEACHER|MENTOR
+FACULTY,Prof. Ethan Shastri,ethan.shastri.me23@rljit.edu.in,+919740100222,ME,Assistant Professor,Assistant Professor,ME-123,TEACHER|MENTOR
+FACULTY,Prof. Devika Walia,devika.walia.me24@rljit.edu.in,+919611100223,ME,Assistant Professor,Assistant Professor,ME-124,TEACHER|MENTOR
+FACULTY,Prof. Mayur Thomas,mayur.thomas.me25@rljit.edu.in,+919535100224,ME,Assistant Professor,Assistant Professor,ME-125,TEACHER|MENTOR
+FACULTY,Prof. Rishabh Banerjee,rishabh.banerjee.me26@rljit.edu.in,+918861100225,ME,Assistant Professor,Assistant Professor,ME-201,TEACHER|MENTOR
+FACULTY,Tanmay Tiwari,tanmay.tiwari.me27@rljit.edu.in,+918197100226,ME,Programmer,System Programmer,ME-202,LAB_STAFF
+FACULTY,Akash Yadav,akash.yadav.me28@rljit.edu.in,+917892100227,ME,Programmer,System Programmer,ME-203,LAB_STAFF
+FACULTY,Gayathri Iyer,gayathri.iyer.me29@rljit.edu.in,+917411100228,ME,Lab Assistant,Senior Lab Assistant,ME-204,LAB_STAFF
+FACULTY,Nikhil Kadam,nikhil.kadam.me30@rljit.edu.in,+916361100229,ME,Lab Assistant,Senior Lab Assistant,ME-205,LAB_STAFF
+FACULTY,Sandeep Kulkarni,sandeep.kulkarni.me31@rljit.edu.in,+919845100230,ME,Lab Assistant,Senior Lab Assistant,ME-206,LAB_STAFF
+FACULTY,Varun Raju,varun.raju.me32@rljit.edu.in,+919880100231,ME,Lab Assistant,Senior Lab Assistant,ME-207,LAB_STAFF
+FACULTY,Dr. Apoorva Grewal,apoorva.grewal.alliedscience01@rljit.edu.in,+919886100232,ALLIED_SCIENCE,Professor,Professor,AS-101,TEACHER|MENTOR
+FACULTY,Dr. Jayanth Khan,jayanth.khan.alliedscience02@rljit.edu.in,+919900100233,ALLIED_SCIENCE,Professor,Professor,AS-102,TEACHER|MENTOR
+FACULTY,Dr. Pooja Bhattacharya,pooja.bhattacharya.alliedscience03@rljit.edu.in,+919980100234,ALLIED_SCIENCE,Professor,Professor,AS-103,TEACHER|MENTOR
+FACULTY,Dr. Shilpa Bansal,shilpa.bansal.alliedscience04@rljit.edu.in,+919448100235,ALLIED_SCIENCE,Professor,Professor,AS-104,TEACHER|MENTOR
+FACULTY,Prof. Vishnu Natarajan,vishnu.natarajan.alliedscience05@rljit.edu.in,+919449100236,ALLIED_SCIENCE,Associate Professor,Associate Professor,AS-105,TEACHER|MENTOR
+FACULTY,Prof. Bharath Kamath,bharath.kamath.alliedscience06@rljit.edu.in,+919740100237,ALLIED_SCIENCE,Associate Professor,Associate Professor,AS-106,TEACHER|MENTOR
+FACULTY,Prof. Kruthi Chavan,kruthi.chavan.alliedscience07@rljit.edu.in,+919611100238,ALLIED_SCIENCE,Associate Professor,Associate Professor,AS-107,TEACHER|MENTOR
+FACULTY,Prof. Rachana Silva,rachana.silva.alliedscience08@rljit.edu.in,+919535100239,ALLIED_SCIENCE,Associate Professor,Associate Professor,AS-108,TEACHER|MENTOR
+FACULTY,Prof. Srishti Shenoy,srishti.shenoy.alliedscience09@rljit.edu.in,+918861100240,ALLIED_SCIENCE,Associate Professor,Associate Professor,AS-109,TEACHER|MENTOR
+FACULTY,Prof. Oliver Bhatia,oliver.bhatia.alliedscience10@rljit.edu.in,+918197100241,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-110,TEACHER|MENTOR
+FACULTY,Prof. Deeksha Gill,deeksha.gill.alliedscience11@rljit.edu.in,+917892100242,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-111,TEACHER|MENTOR
+FACULTY,Prof. Manoj Parekh,manoj.parekh.alliedscience12@rljit.edu.in,+917411100243,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-112,TEACHER|MENTOR
+FACULTY,Prof. Revathi Shah,revathi.shah.alliedscience13@rljit.edu.in,+916361100244,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-113,TEACHER|MENTOR
+FACULTY,Prof. Swathi Krishnan,swathi.krishnan.alliedscience14@rljit.edu.in,+919845100245,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-114,TEACHER|MENTOR
+FACULTY,Prof. Aishwarya Murthy,aishwarya.murthy.alliedscience15@rljit.edu.in,+919880100246,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-115,TEACHER|MENTOR
+FACULTY,Prof. Gaurav Jadhav,gaurav.jadhav.alliedscience16@rljit.edu.in,+919886100247,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-116,TEACHER|MENTOR
+FACULTY,Prof. Neha Kim,neha.kim.alliedscience17@rljit.edu.in,+919900100248,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-117,TEACHER|MENTOR
+FACULTY,Prof. Samarth Rodrigues,samarth.rodrigues.alliedscience18@rljit.edu.in,+919980100249,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-118,TEACHER|MENTOR
+FACULTY,Prof. Varsha Khanna,varsha.khanna.alliedscience19@rljit.edu.in,+919448100250,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-119,TEACHER|MENTOR
+FACULTY,Prof. Anusha Mukherjee,anusha.mukherjee.alliedscience20@rljit.edu.in,+919449100251,ALLIED_SCIENCE,Assistant Professor,Assistant Professor,AS-120,TEACHER|MENTOR
+FACULTY,Ishaan Goyal,ishaan.goyal.alliedscience21@rljit.edu.in,+919740100252,ALLIED_SCIENCE,Programmer,System Programmer,AS-121,LAB_STAFF
+FACULTY,Pavithra Singh,pavithra.singh.alliedscience22@rljit.edu.in,+919611100253,ALLIED_SCIENCE,Programmer,System Programmer,AS-122,LAB_STAFF
+FACULTY,Shashank Varghese,shashank.varghese.alliedscience23@rljit.edu.in,+919535100254,ALLIED_SCIENCE,Lab Assistant,Senior Lab Assistant,AS-123,LAB_STAFF
+FACULTY,Vishal Deshpande,vishal.deshpande.alliedscience24@rljit.edu.in,+918861100255,ALLIED_SCIENCE,Lab Assistant,Senior Lab Assistant,AS-124,LAB_STAFF
+FACULTY,Bhavana Wodeyar,bhavana.wodeyar.alliedscience25@rljit.edu.in,+918197100256,ALLIED_SCIENCE,Lab Assistant,Senior Lab Assistant,AS-125,LAB_STAFF
+FACULTY,Dr. Krishna Mistry,krishna.mistry.mathsci01@rljit.edu.in,+917892100257,MATH_SCI,Professor,Professor,MS-101,TEACHER|MENTOR
+FACULTY,Dr. Puneeth George,puneeth.george.mathsci02@rljit.edu.in,+917411100258,MATH_SCI,Professor,Professor,MS-102,TEACHER|MENTOR
+FACULTY,Dr. Srinivas Ahluwalia,srinivas.ahluwalia.mathsci03@rljit.edu.in,+916361100259,MATH_SCI,Professor,Professor,MS-103,TEACHER|MENTOR
+FACULTY,Prof. Noah Das,noah.das.mathsci04@rljit.edu.in,+919845100260,MATH_SCI,Associate Professor,Associate Professor,MS-104,TEACHER|MENTOR
+FACULTY,Prof. Deepika Sinha,deepika.sinha.mathsci05@rljit.edu.in,+919880100261,MATH_SCI,Associate Professor,Associate Professor,MS-105,TEACHER|MENTOR
+FACULTY,Prof. Manish Menon,manish.menon.mathsci06@rljit.edu.in,+919886100262,MATH_SCI,Associate Professor,Associate Professor,MS-106,TEACHER|MENTOR
+FACULTY,Prof. Ravi Nambiar,ravi.nambiar.mathsci07@rljit.edu.in,+919900100263,MATH_SCI,Associate Professor,Associate Professor,MS-107,TEACHER|MENTOR
+FACULTY,Prof. Swapna Patil,swapna.patil.mathsci08@rljit.edu.in,+919980100264,MATH_SCI,Assistant Professor,Assistant Professor,MS-108,TEACHER|MENTOR
+FACULTY,Prof. Aditya Sastry,aditya.sastry.mathsci09@rljit.edu.in,+919448100265,MATH_SCI,Assistant Professor,Assistant Professor,MS-109,TEACHER|MENTOR
+FACULTY,Prof. Ganesh Virk,ganesh.virk.mathsci10@rljit.edu.in,+919449100266,MATH_SCI,Assistant Professor,Assistant Professor,MS-110,TEACHER|MENTOR
+FACULTY,Prof. Navya Qureshi,navya.qureshi.mathsci11@rljit.edu.in,+919740100267,MATH_SCI,Assistant Professor,Assistant Professor,MS-111,TEACHER|MENTOR
+FACULTY,Prof. Sakshi Dutta,sakshi.dutta.mathsci12@rljit.edu.in,+919611100268,MATH_SCI,Assistant Professor,Assistant Professor,MS-112,TEACHER|MENTOR
+FACULTY,Prof. Vaishnavi Mishra,vaishnavi.mishra.mathsci13@rljit.edu.in,+919535100269,MATH_SCI,Assistant Professor,Assistant Professor,MS-113,TEACHER|MENTOR
+FACULTY,Prof. Ankith Sethi,ankith.sethi.mathsci14@rljit.edu.in,+918861100270,MATH_SCI,Assistant Professor,Assistant Professor,MS-114,TEACHER|MENTOR
+FACULTY,Prof. Indira Sen,indira.sen.mathsci15@rljit.edu.in,+918197100271,MATH_SCI,Assistant Professor,Assistant Professor,MS-115,TEACHER|MENTOR
+FACULTY,Prof. Pavan Solanki,pavan.solanki.mathsci16@rljit.edu.in,+917892100272,MATH_SCI,Assistant Professor,Assistant Professor,MS-116,TEACHER|MENTOR
+FACULTY,Prof. Sharath Gupta,sharath.gupta.mathsci17@rljit.edu.in,+917411100273,MATH_SCI,Assistant Professor,Assistant Professor,MS-117,TEACHER|MENTOR
+FACULTY,Vinod Kurian,vinod.kurian.mathsci18@rljit.edu.in,+916361100274,MATH_SCI,Programmer,System Programmer,MS-118,LAB_STAFF
+FACULTY,Bhargav Reddy,bhargav.reddy.mathsci19@rljit.edu.in,+919845100275,MATH_SCI,Lab Assistant,Senior Lab Assistant,MS-119,LAB_STAFF
+FACULTY,Komal Urs,komal.urs.mathsci20@rljit.edu.in,+919880100276,MATH_SCI,Lab Assistant,Senior Lab Assistant,MS-120,LAB_STAFF
+FACULTY,Dr. Priya Zaveri,priya.zaveri.phychem01@rljit.edu.in,+919886100277,PHY_CHEM,Professor,Professor,PC-101,TEACHER|MENTOR
+FACULTY,Dr. Spoorthi Mathew,spoorthi.mathew.phychem02@rljit.edu.in,+919900100278,PHY_CHEM,Professor,Professor,PC-102,TEACHER|MENTOR
+FACULTY,Dr. Liam Sarkar,liam.sarkar.phychem03@rljit.edu.in,+919980100279,PHY_CHEM,Professor,Professor,PC-103,TEACHER|MENTOR
+FACULTY,Prof. Deepak Pandey,deepak.pandey.phychem04@rljit.edu.in,+919448100280,PHY_CHEM,Associate Professor,Associate Professor,PC-104,TEACHER|MENTOR
+FACULTY,Prof. Manasa Thakur,manasa.thakur.phychem05@rljit.edu.in,+919449100281,PHY_CHEM,Associate Professor,Associate Professor,PC-105,TEACHER|MENTOR
+FACULTY,Prof. Rathan Nair,rathan.nair.phychem06@rljit.edu.in,+919740100282,PHY_CHEM,Associate Professor,Associate Professor,PC-106,TEACHER|MENTOR
+FACULTY,Prof. Surya Salunkhe,surya.salunkhe.phychem07@rljit.edu.in,+919611100283,PHY_CHEM,Associate Professor,Associate Professor,PC-107,TEACHER|MENTOR
+FACULTY,Prof. Aditi Gowda,aditi.gowda.phychem08@rljit.edu.in,+919535100284,PHY_CHEM,Assistant Professor,Assistant Professor,PC-108,TEACHER|MENTOR
+FACULTY,Prof. Gagan Prasad,gagan.prasad.phychem09@rljit.edu.in,+918861100285,PHY_CHEM,Assistant Professor,Assistant Professor,PC-109,TEACHER|MENTOR
+FACULTY,Prof. Nandan Sandhu,nandan.sandhu.phychem10@rljit.edu.in,+918197100286,PHY_CHEM,Assistant Professor,Assistant Professor,PC-110,TEACHER|MENTOR
+FACULTY,Prof. Sai Siddiqui,sai.siddiqui.phychem11@rljit.edu.in,+917892100287,PHY_CHEM,Assistant Professor,Assistant Professor,PC-111,TEACHER|MENTOR
+FACULTY,Prof. Vaibhav Roy,vaibhav.roy.phychem12@rljit.edu.in,+917411100288,PHY_CHEM,Assistant Professor,Assistant Professor,PC-112,TEACHER|MENTOR
+FACULTY,Prof. Anjali Chauhan,anjali.chauhan.phychem13@rljit.edu.in,+916361100289,PHY_CHEM,Assistant Professor,Assistant Professor,PC-113,TEACHER|MENTOR
+FACULTY,Prof. Hitesh Balasubramanian,hitesh.balasubramanian.phychem14@rljit.edu.in,+919845100290,PHY_CHEM,Assistant Professor,Assistant Professor,PC-114,TEACHER|MENTOR
+FACULTY,Prof. Pallavi Acharya,pallavi.acharya.phychem15@rljit.edu.in,+919880100291,PHY_CHEM,Assistant Professor,Assistant Professor,PC-115,TEACHER|MENTOR
+FACULTY,Prof. Shankar Rane,shankar.rane.phychem16@rljit.edu.in,+919886100292,PHY_CHEM,Assistant Professor,Assistant Professor,PC-116,TEACHER|MENTOR
+FACULTY,Vinay Sharma,vinay.sharma.phychem17@rljit.edu.in,+919900100293,PHY_CHEM,Programmer,System Programmer,PC-117,LAB_STAFF
+FACULTY,Avinash Prabhu,avinash.prabhu.phychem18@rljit.edu.in,+919980100294,PHY_CHEM,Lab Assistant,Senior Lab Assistant,PC-118,LAB_STAFF
+FACULTY,Kishan Chopra,kishan.chopra.phychem19@rljit.edu.in,+919448100295,PHY_CHEM,Lab Assistant,Senior Lab Assistant,PC-119,LAB_STAFF
+FACULTY,Preethi Malhotra,preethi.malhotra.phychem20@rljit.edu.in,+919449100296,PHY_CHEM,Lab Assistant,Senior Lab Assistant,PC-120,LAB_STAFF
+FACULTY,Dr. Sneha Trivedi,sneha.trivedi.humanities01@rljit.edu.in,+919740100297,HUMANITIES,Professor,Professor,HM-101,TEACHER|MENTOR
+FACULTY,Dr. Zoya Mehta,zoya.mehta.humanities02@rljit.edu.in,+919611100298,HUMANITIES,Professor,Professor,HM-102,TEACHER|MENTOR
+FACULTY,Prof. Darshan Sundaram,darshan.sundaram.humanities03@rljit.edu.in,+919535100299,HUMANITIES,Associate Professor,Associate Professor,HM-103,TEACHER|MENTOR
+FACULTY,Prof. Mahesh Bhat,mahesh.bhat.humanities04@rljit.edu.in,+918861100300,HUMANITIES,Associate Professor,Associate Professor,HM-104,TEACHER|MENTOR
+FACULTY,Prof. Rashmi Shinde,rashmi.shinde.humanities05@rljit.edu.in,+918197100301,HUMANITIES,Associate Professor,Associate Professor,HM-105,TEACHER|MENTOR
+FACULTY,Prof. Suraj Tanaka,suraj.tanaka.humanities06@rljit.edu.in,+917892100302,HUMANITIES,Assistant Professor,Assistant Professor,HM-106,TEACHER|MENTOR
+FACULTY,Prof. Aarav Mallya,aarav.mallya.humanities07@rljit.edu.in,+917411100303,HUMANITIES,Assistant Professor,Assistant Professor,HM-107,TEACHER|MENTOR
+FACULTY,Prof. Farhan Tandon,farhan.tandon.humanities08@rljit.edu.in,+916361100304,HUMANITIES,Assistant Professor,Assistant Professor,HM-108,TEACHER|MENTOR
+FACULTY,Prof. Namratha Chatterjee,namratha.chatterjee.humanities09@rljit.edu.in,+919845100305,HUMANITIES,Assistant Professor,Assistant Professor,HM-109,TEACHER|MENTOR
+FACULTY,Prof. Sahana Jain,sahana.jain.humanities10@rljit.edu.in,+919880100306,HUMANITIES,Assistant Professor,Assistant Professor,HM-110,TEACHER|MENTOR
+FACULTY,Prof. Uday Kumar,uday.kumar.humanities11@rljit.edu.in,+919886100307,HUMANITIES,Assistant Professor,Assistant Professor,HM-111,TEACHER|MENTOR
+FACULTY,Prof. Anirudh Subramanian,anirudh.subramanian.humanities12@rljit.edu.in,+919900100308,HUMANITIES,Assistant Professor,Assistant Professor,HM-112,TEACHER|MENTOR
+FACULTY,Prof. Hemant Hegde,hemant.hegde.humanities13@rljit.edu.in,+919980100309,HUMANITIES,Assistant Professor,Assistant Professor,HM-113,TEACHER|MENTOR
+FACULTY,Prof. Omkar Pawar,omkar.pawar.humanities14@rljit.edu.in,+919448100310,HUMANITIES,Assistant Professor,Assistant Professor,HM-114,TEACHER|MENTOR
+FACULTY,Shalini Alvarez,shalini.alvarez.humanities15@rljit.edu.in,+919449100311,HUMANITIES,Programmer,System Programmer,HM-115,LAB_STAFF
+FACULTY,Vikram Fernandes,vikram.fernandes.humanities16@rljit.edu.in,+919740100312,HUMANITIES,Lab Assistant,Senior Lab Assistant,HM-116,LAB_STAFF
+FACULTY,Dr. Atharva Bedi,atharva.bedi.rndacademics01@rljit.edu.in,+919611100313,RND_ACADEMICS,Professor,Professor,RD-101,TEACHER|MENTOR
+FACULTY,Dr. Keerthana Bose,keerthana.bose.rndacademics02@rljit.edu.in,+919535100314,RND_ACADEMICS,Professor,Professor,RD-102,TEACHER|MENTOR
+FACULTY,Dr. Prateek Rathore,prateek.rathore.rndacademics03@rljit.edu.in,+918861100315,RND_ACADEMICS,Professor,Professor,RD-103,TEACHER|MENTOR
+FACULTY,Dr. Sindhu Verma,sindhu.verma.rndacademics04@rljit.edu.in,+918197100316,RND_ACADEMICS,Professor,Professor,RD-104,TEACHER|MENTOR
+FACULTY,Prof. Zain Pillai,zain.pillai.rndacademics05@rljit.edu.in,+917892100317,RND_ACADEMICS,Associate Professor,Associate Professor,RD-105,TEACHER|MENTOR
+FACULTY,Prof. Chinmay Naidu,chinmay.naidu.rndacademics06@rljit.edu.in,+917411100318,RND_ACADEMICS,Associate Professor,Associate Professor,RD-106,TEACHER|MENTOR
+FACULTY,Prof. Madhuri Shastri,madhuri.shastri.rndacademics07@rljit.edu.in,+916361100319,RND_ACADEMICS,Associate Professor,Associate Professor,RD-107,TEACHER|MENTOR
+FACULTY,Prof. Ramesh Walia,ramesh.walia.rndacademics08@rljit.edu.in,+919845100320,RND_ACADEMICS,Associate Professor,Associate Professor,RD-108,TEACHER|MENTOR
+FACULTY,Prof. Supriya Thomas,supriya.thomas.rndacademics09@rljit.edu.in,+919880100321,RND_ACADEMICS,Assistant Professor,Assistant Professor,RD-109,TEACHER|MENTOR
+FACULTY,Prof. Maya Banerjee,maya.banerjee.rndacademics10@rljit.edu.in,+919886100322,RND_ACADEMICS,Assistant Professor,Assistant Professor,RD-110,TEACHER|MENTOR
+FACULTY,Prof. Eshwar Tiwari,eshwar.tiwari.rndacademics11@rljit.edu.in,+919900100323,RND_ACADEMICS,Assistant Professor,Assistant Professor,RD-111,TEACHER|MENTOR
+FACULTY,Prof. Nagaraj Yadav,nagaraj.yadav.rndacademics12@rljit.edu.in,+919980100324,RND_ACADEMICS,Assistant Professor,Assistant Professor,RD-112,TEACHER|MENTOR
+FACULTY,Prof. Sagar Iyer,sagar.iyer.rndacademics13@rljit.edu.in,+919448100325,RND_ACADEMICS,Assistant Professor,Assistant Professor,RD-113,TEACHER|MENTOR
+FACULTY,Tejaswini Kadam,tejaswini.kadam.rndacademics14@rljit.edu.in,+919449100326,RND_ACADEMICS,Programmer,System Programmer,RD-114,LAB_STAFF
+FACULTY,Ananya Kulkarni,ananya.kulkarni.rndacademics15@rljit.edu.in,+919740100327,RND_ACADEMICS,Programmer,System Programmer,RD-115,LAB_STAFF
+FACULTY,Harshitha Raju,harshitha.raju.rndacademics16@rljit.edu.in,+919611100328,RND_ACADEMICS,Lab Assistant,Senior Lab Assistant,RD-116,LAB_STAFF

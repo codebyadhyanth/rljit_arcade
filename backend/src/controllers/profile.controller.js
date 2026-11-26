@@ -50,8 +50,8 @@ export async function getProfile(req, res) {
     // Role-specific extensions
     if (user.base_role === 'STUDENT') {
       const studentRes = await pool.query(
-        `SELECT s.usn, s.department, s.semester, s.section, s.entry_type,
-                s.admission_quota, s.cgpa, s.status, s.lg_faculty_id,
+        `SELECT s.usn, s.department, s.core_branch, s.semester, s.academic_year,
+                s.section, s.entry_type, s.admission_quota, s.cgpa, s.status, s.lg_faculty_id,
                 u_lg.username AS lg_username, u_lg.full_name_encrypted AS lg_name_enc
          FROM student s
          LEFT JOIN users u_lg ON s.lg_faculty_id = u_lg.id
@@ -63,7 +63,9 @@ export async function getProfile(req, res) {
         profile.studentDetails = {
           usn: s.usn,
           department: s.department,
+          coreBranch: s.core_branch,
           semester: s.semester,
+          academicYear: s.academic_year,
           section: s.section,
           entryType: s.entry_type,
           admissionQuota: s.admission_quota,
@@ -80,7 +82,7 @@ export async function getProfile(req, res) {
       }
     } else if (user.base_role === 'FACULTY') {
       const facultyRes = await pool.query(
-        `SELECT emp_id, department, designation, cabin_room, is_lg_coordinator, is_hod
+        `SELECT emp_id, department, designation, classification, cabin_room, is_lg_coordinator, is_hod
          FROM faculty WHERE user_id = $1`,
         [userId]
       );
@@ -110,112 +112,161 @@ export async function getProfile(req, res) {
 
 /**
  * GET /api/v1/dashboard/metrics
- * Returns live operational dashboard metrics tailored to the caller's role
+ * Returns live operational dashboard metrics tailored to the caller's role over Module 7 normalized tables
  */
 export async function getDashboardMetrics(req, res) {
   try {
     await ensureDatabaseExists();
     const { userId, baseRole, adminTier, department } = req.user;
+    const subRoles = Array.isArray(req.user.subRoles) ? req.user.subRoles : [];
+    const isHod = adminTier === 'HOD_ADMIN' || subRoles.includes('HOD');
 
     // 1. STUDENT Dashboard
     if (baseRole === 'STUDENT') {
-      const studentRes = await pool.query('SELECT usn, department, semester, section FROM student WHERE user_id = $1', [userId]);
+      const studentRes = await pool.query(
+        'SELECT usn, department, semester, section FROM student WHERE user_id = $1',
+        [userId]
+      );
       const usn = studentRes.rowCount > 0 ? studentRes.rows[0].usn : req.user.username;
       const dept = studentRes.rowCount > 0 ? studentRes.rows[0].department : department;
       const sem = studentRes.rowCount > 0 ? studentRes.rows[0].semester : null;
       const sec = studentRes.rowCount > 0 ? studentRes.rows[0].section : null;
 
-      // Attendance percentage
-      const attRes = await pool.query(
-        `SELECT 
-           COUNT(*) AS total_sessions,
-           COUNT(*) FILTER (WHERE attendance_status IN ('P', 'OD_PRESENT')) AS attended_sessions,
-           ROUND(COUNT(*) FILTER (WHERE attendance_status IN ('P', 'OD_PRESENT')) * 100.0 / NULLIF(COUNT(*), 0), 2) AS attendance_pct
-         FROM academic_records
-         WHERE student_usn = $1 AND record_type = 'ATTENDANCE'`,
-        [usn]
-      );
-
-      // Average CIE marks
-      const cieRes = await pool.query(
-        `SELECT 
-           ROUND(AVG(marks_obtained), 2) AS avg_cie_marks,
-           COUNT(*) AS tests_recorded
-         FROM academic_records
-         WHERE student_usn = $1 AND record_type IN ('CIE_1', 'CIE_2', 'CIE_3')`,
-        [usn]
-      );
-
-      // Pending fees and fines
-      const financeRes = await pool.query(
-        `SELECT 
-           COALESCE(SUM(total_amount - paid_amount), 0.00) AS pending_dues,
-           COUNT(*) FILTER (WHERE status != 'PAID') AS pending_bills
-         FROM finance_ledgers
-         WHERE student_usn = $1`,
-        [usn]
-      );
-
-      // Today's approved class swaps
-      const swapRes = await pool.query(
-        `SELECT COUNT(*) AS today_swaps
-         FROM timetable_swaps ts
-         JOIN timetables t ON ts.timetable_id = t.id
-         WHERE ts.swap_date = CURRENT_DATE 
-           AND ts.status = 'APPROVED'
-           AND t.department = $1 AND t.semester = $2 AND t.section = $3`,
-        [dept, sem, sec]
-      );
-
-      // Verified documents count
-      const docsRes = await pool.query(
-        `SELECT 
-           COUNT(*) AS total_documents,
-           COUNT(*) FILTER (WHERE verification_status = 'VERIFIED') AS verified_count
-         FROM student_documents
-         WHERE student_usn = $1`,
-        [usn]
-      );
+      const [attRes, cieRes, financeRes, swapRes, docsRes] = await Promise.all([
+        pool.query(
+          `SELECT
+             COUNT(*)::int AS total_sessions,
+             COUNT(*) FILTER (WHERE status IN ('PRESENT', 'LATE'))::int AS attended_sessions,
+             COALESCE(
+               ROUND(COUNT(*) FILTER (WHERE status IN ('PRESENT', 'LATE')) * 100.0 / NULLIF(COUNT(*), 0), 2),
+               0
+             ) AS attendance_pct
+           FROM attendance_records
+           WHERE student_id = $1`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT
+             COALESCE(ROUND(AVG(total_cie), 2), 0) AS avg_cie_marks,
+             COUNT(*)::int AS tests_recorded
+           FROM cie_marks
+           WHERE student_id = $1`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT
+             COALESCE(SUM(GREATEST(0, (amount_due + fine_amount) - amount_paid)), 0.00) AS pending_dues,
+             COUNT(*) FILTER (WHERE status != 'PAID')::int AS pending_bills
+           FROM finance_records
+           WHERE student_id = $1`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT COUNT(*)::int AS today_swaps
+           FROM timetable_slots
+           WHERE swap_status = 'APPROVED'
+             AND swap_date = CURRENT_DATE
+             AND UPPER(department) = UPPER($1)
+             AND semester = $2
+             AND UPPER(section) = UPPER($3)`,
+          [dept || '', sem, sec || '']
+        ),
+        pool.query(
+          `SELECT
+             COUNT(*)::int AS total_documents,
+             COUNT(*) FILTER (WHERE verification_status = 'VERIFIED')::int AS verified_count
+           FROM student_documents
+           WHERE UPPER(student_usn) = UPPER($1)`,
+          [usn || '']
+        ),
+      ]);
 
       return res.status(200).json({
         success: true,
         role: 'STUDENT',
         metrics: {
-          attendancePercentage: parseFloat(attRes.rows[0]?.attendance_pct || 0),
-          totalSessions: parseInt(attRes.rows[0]?.total_sessions || 0, 10),
-          attendedSessions: parseInt(attRes.rows[0]?.attended_sessions || 0, 10),
-          avgCieMarks: parseFloat(cieRes.rows[0]?.avg_cie_marks || 0),
-          pendingDues: parseFloat(financeRes.rows[0]?.pending_dues || 0),
-          pendingBillsCount: parseInt(financeRes.rows[0]?.pending_bills || 0, 10),
-          todayApprovedSwaps: parseInt(swapRes.rows[0]?.today_swaps || 0, 10),
-          verifiedDocuments: parseInt(docsRes.rows[0]?.verified_count || 0, 10),
-          totalDocuments: parseInt(docsRes.rows[0]?.total_documents || 0, 10),
+          attendancePercentage: parseFloat(attRes.rows[0]?.attendance_pct ?? 0),
+          totalSessions: parseInt(attRes.rows[0]?.total_sessions ?? 0, 10),
+          attendedSessions: parseInt(attRes.rows[0]?.attended_sessions ?? 0, 10),
+          avgCieMarks: parseFloat(cieRes.rows[0]?.avg_cie_marks ?? 0),
+          testsRecorded: parseInt(cieRes.rows[0]?.tests_recorded ?? 0, 10),
+          pendingDues: parseFloat(financeRes.rows[0]?.pending_dues ?? 0),
+          pendingBillsCount: parseInt(financeRes.rows[0]?.pending_bills ?? 0, 10),
+          todayApprovedSwaps: parseInt(swapRes.rows[0]?.today_swaps ?? 0, 10),
+          verifiedDocuments: parseInt(docsRes.rows[0]?.verified_count ?? 0, 10),
+          totalDocuments: parseInt(docsRes.rows[0]?.total_documents ?? 0, 10),
         },
       });
     }
 
-    // 2. FACULTY Dashboard
-    if (baseRole === 'FACULTY' && adminTier !== 'HOD_ADMIN') {
-      // Today's slots (ISODOW: 1=Mon, 6=Sat)
-      const slotsRes = await pool.query(
-        `SELECT t.id, t.department, t.semester, t.section, t.period_no, t.subject_code, t.room_no
-         FROM timetables t
-         WHERE t.faculty_id = $1 AND t.day_of_week = EXTRACT(ISODOW FROM CURRENT_DATE)
-         ORDER BY t.period_no ASC`,
-        [userId]
-      );
+    // 2. HOD_ADMIN / Promoted HOD Dashboard (checked before non-HOD FACULTY)
+    if (isHod && adminTier !== 'SUPER_ADMIN') {
+      const dept = String(department || '').trim().toUpperCase();
+      if (!dept) {
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden: Department scope missing on HOD profile',
+        });
+      }
 
-      // LG Mentees count
-      const menteesRes = await pool.query(
-        'SELECT COUNT(*) AS mentees_count FROM student WHERE lg_faculty_id = $1',
-        [userId]
-      );
+      const [countsRes, deptAttRes] = await Promise.all([
+        pool.query(
+          `SELECT
+             (SELECT COUNT(*)::int FROM student WHERE UPPER(department) = $1 OR (UPPER(department) = 'ALLIED_SCIENCE' AND UPPER(core_branch) = $1)) AS student_count,
+             (SELECT COUNT(*)::int FROM faculty WHERE UPPER(department) = $1) AS faculty_count,
+             (SELECT COUNT(*)::int FROM record_unlock_requests WHERE UPPER(department) = $1 AND hod_status = 'PENDING') AS pending_unlocks,
+             (SELECT COUNT(*)::int FROM timetable_slots WHERE UPPER(department) = $1 AND swap_status = 'PENDING') AS pending_swaps;`,
+          [dept]
+        ),
+        pool.query(
+          `SELECT COALESCE(
+             ROUND(COUNT(*) FILTER (WHERE status IN ('PRESENT', 'LATE')) * 100.0 / NULLIF(COUNT(*), 0), 2),
+             0
+           ) AS dept_att_avg
+           FROM attendance_records
+           WHERE UPPER(department) = $1`,
+          [dept]
+        ),
+      ]);
 
-      // Pending leave requests for mentees
-      const leavesRes = await pool.query(
-        "SELECT COUNT(*) AS pending_leaves FROM lg_leave_requests WHERE lg_faculty_id = $1 AND status = 'PENDING'",
-        [userId]
-      );
+      return res.status(200).json({
+        success: true,
+        role: 'HOD_ADMIN',
+        department: dept,
+        metrics: {
+          departmentStudents: parseInt(countsRes.rows[0]?.student_count ?? 0, 10),
+          departmentFaculty: parseInt(countsRes.rows[0]?.faculty_count ?? 0, 10),
+          pendingPostEodUnlockRequests: parseInt(countsRes.rows[0]?.pending_unlocks ?? 0, 10),
+          pendingClassSwaps: parseInt(countsRes.rows[0]?.pending_swaps ?? 0, 10),
+          departmentAttendanceAverage: parseFloat(deptAttRes.rows[0]?.dept_att_avg ?? 0),
+        },
+      });
+    }
+
+    // 3. Non-HOD FACULTY Dashboard
+    if (baseRole === 'FACULTY' && !isHod) {
+      const [slotsRes, menteesRes, leavesRes, swapsRes] = await Promise.all([
+        pool.query(
+          `SELECT id, department, semester, section, period_no, start_time, end_time,
+                  subject_code, subject_name, room_no, swap_status
+           FROM timetable_slots
+           WHERE (faculty_id = $1 OR (swapped_faculty_id = $1 AND swap_status = 'APPROVED' AND swap_date = CURRENT_DATE))
+             AND day_of_week = EXTRACT(ISODOW FROM CURRENT_DATE)
+           ORDER BY period_no ASC`,
+          [userId]
+        ),
+        pool.query('SELECT COUNT(*)::int AS mentees_count FROM student WHERE lg_faculty_id = $1', [
+          userId,
+        ]),
+        pool.query(
+          "SELECT COUNT(*)::int AS pending_leaves FROM lg_leave_requests WHERE lg_faculty_id = $1 AND status = 'PENDING'",
+          [userId]
+        ),
+        pool.query(
+          "SELECT COUNT(*)::int AS pending_swaps FROM timetable_slots WHERE swapped_faculty_id = $1 AND swap_status = 'PENDING'",
+          [userId]
+        ),
+      ]);
 
       return res.status(200).json({
         success: true,
@@ -223,62 +274,30 @@ export async function getDashboardMetrics(req, res) {
         metrics: {
           todaySlotsCount: slotsRes.rowCount,
           todaySchedule: slotsRes.rows,
-          lgMenteesCount: parseInt(menteesRes.rows[0]?.mentees_count || 0, 10),
-          pendingLeaveRequests: parseInt(leavesRes.rows[0]?.pending_leaves || 0, 10),
-        },
-      });
-    }
-
-    // 3. HOD_ADMIN Dashboard
-    if (adminTier === 'HOD_ADMIN' || (Array.isArray(req.user.subRoles) && req.user.subRoles.includes('HOD'))) {
-      const dept = department || 'CS';
-
-      const countsRes = await pool.query(
-        `SELECT 
-           (SELECT COUNT(*) FROM student WHERE department = $1) AS student_count,
-           (SELECT COUNT(*) FROM faculty WHERE department = $1) AS faculty_count,
-           (SELECT COUNT(*) FROM record_unlock_requests WHERE department = $1 AND hod_status = 'PENDING') AS pending_unlocks;`,
-        [dept]
-      );
-
-      const deptAttRes = await pool.query(
-        `SELECT ROUND(COUNT(*) FILTER (WHERE attendance_status IN ('P', 'OD_PRESENT')) * 100.0 / NULLIF(COUNT(*), 0), 2) AS dept_att_avg
-         FROM academic_records
-         WHERE department = $1 AND record_type = 'ATTENDANCE'`,
-        [dept]
-      );
-
-      return res.status(200).json({
-        success: true,
-        role: 'HOD_ADMIN',
-        department: dept,
-        metrics: {
-          departmentStudents: parseInt(countsRes.rows[0]?.student_count || 0, 10),
-          departmentFaculty: parseInt(countsRes.rows[0]?.faculty_count || 0, 10),
-          pendingPostEodUnlockRequests: parseInt(countsRes.rows[0]?.pending_unlocks || 0, 10),
-          departmentAttendanceAverage: parseFloat(deptAttRes.rows[0]?.dept_att_avg || 0),
+          lgMenteesCount: parseInt(menteesRes.rows[0]?.mentees_count ?? 0, 10),
+          pendingLeaveRequests: parseInt(leavesRes.rows[0]?.pending_leaves ?? 0, 10),
+          pendingSwapRequests: parseInt(swapsRes.rows[0]?.pending_swaps ?? 0, 10),
         },
       });
     }
 
     // 4. SUPER_ADMIN / REGULAR_ADMIN Dashboard
-    const userTotalsRes = await pool.query(
-      `SELECT base_role, COUNT(*) AS count FROM users GROUP BY base_role`
-    );
-
-    const financeTotalsRes = await pool.query(
-      `SELECT 
-         COALESCE(SUM(paid_amount), 0.00) AS total_collected,
-         COALESCE(SUM(total_amount - paid_amount), 0.00) AS total_dues
-       FROM finance_ledgers`
-    );
-
-    const docVerificationRes = await pool.query(
-      `SELECT 
-         COUNT(*) FILTER (WHERE verification_status = 'PENDING_REVIEW') AS pending_review,
-         COUNT(*) FILTER (WHERE verification_status = 'VERIFIED') AS verified
-       FROM student_documents`
-    );
+    const [userTotalsRes, financeTotalsRes, docVerificationRes, instDocRes] = await Promise.all([
+      pool.query('SELECT base_role, COUNT(*)::int AS count FROM users GROUP BY base_role'),
+      pool.query(
+        `SELECT
+           COALESCE(SUM(amount_paid), 0.00) AS total_collected,
+           COALESCE(SUM(GREATEST(0, (amount_due + fine_amount) - amount_paid)), 0.00) AS total_dues
+         FROM finance_records`
+      ),
+      pool.query(
+        `SELECT
+           COUNT(*) FILTER (WHERE verification_status = 'PENDING_REVIEW')::int AS pending_review,
+           COUNT(*) FILTER (WHERE verification_status = 'VERIFIED')::int AS verified
+         FROM student_documents`
+      ),
+      pool.query('SELECT COUNT(*)::int AS total FROM institutional_documents WHERE is_active = TRUE'),
+    ]);
 
     const userMap = {};
     userTotalsRes.rows.forEach((r) => {
@@ -296,13 +315,14 @@ export async function getDashboardMetrics(req, res) {
           TOTAL: (userMap.ADMIN || 0) + (userMap.FACULTY || 0) + (userMap.STUDENT || 0),
         },
         financialOverview: {
-          totalCollected: parseFloat(financeTotalsRes.rows[0]?.total_collected || 0),
-          totalOutstandingDues: parseFloat(financeTotalsRes.rows[0]?.total_dues || 0),
+          totalCollected: parseFloat(financeTotalsRes.rows[0]?.total_collected ?? 0),
+          totalOutstandingDues: parseFloat(financeTotalsRes.rows[0]?.total_dues ?? 0),
         },
         documentVerificationStatus: {
-          pendingReview: parseInt(docVerificationRes.rows[0]?.pending_review || 0, 10),
-          verified: parseInt(docVerificationRes.rows[0]?.verified || 0, 10),
+          pendingReview: parseInt(docVerificationRes.rows[0]?.pending_review ?? 0, 10),
+          verified: parseInt(docVerificationRes.rows[0]?.verified ?? 0, 10),
         },
+        institutionalDocumentsCount: parseInt(instDocRes.rows[0]?.total ?? 0, 10),
       },
     });
   } catch (error) {
@@ -315,4 +335,3 @@ export default {
   getProfile,
   getDashboardMetrics,
 };
-

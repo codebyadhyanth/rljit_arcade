@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,13 +15,23 @@ import MaskedField from '../components/MaskedField';
 import UnderDevelopmentView from '../components/UnderDevelopmentView';
 
 export default function DirectoryScreen() {
-  const { user } = useAuth();
+  const { user, enableScreenPrivacy, disableScreenPrivacy } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [execTimeMs, setExecTimeMs] = useState(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (user?.baseRole !== 'STUDENT') {
+      enableScreenPrivacy?.();
+      return () => {
+        disableScreenPrivacy?.();
+      };
+    }
+    return undefined;
+  }, [user?.baseRole, enableScreenPrivacy, disableScreenPrivacy]);
 
   if (user?.baseRole === 'STUDENT') {
     return (
@@ -68,7 +78,7 @@ export default function DirectoryScreen() {
             style={styles.searchInput}
             value={query}
             onChangeText={setQuery}
-            placeholder="Search USN, Name, Email, or Phone..."
+            placeholder="Search Username/USN, Email, or Phone"
             placeholderTextColor={Colors.textMuted}
             autoCapitalize="none"
           />
@@ -178,13 +188,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.hairlineBorder,
     borderRadius: 12,
     paddingHorizontal: 12,
-    height: 46,
+    minHeight: 48,
     fontSize: 13,
     color: Colors.textPrimary,
   },
   searchBtn: {
     backgroundColor: Colors.surfaceDark,
     borderRadius: 12,
+    minHeight: 48,
+    minWidth: 48,
     paddingHorizontal: 16,
     justifyContent: 'center',
     alignItems: 'center',

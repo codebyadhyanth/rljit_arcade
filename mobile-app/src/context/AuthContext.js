@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as ScreenCapture from 'expo-screen-capture';
 import { Platform } from 'react-native';
@@ -20,6 +20,20 @@ export const AuthProvider = ({ children }) => {
       const storedToken = await getToken();
       if (storedToken) {
         setTokenState(storedToken);
+        try {
+          const res = await api.get('/api/v1/profile/me');
+          if (res.data?.profile) {
+            setUser(res.data.profile);
+          } else {
+            await removeToken();
+            setTokenState(null);
+            setUser(null);
+          }
+        } catch {
+          await removeToken();
+          setTokenState(null);
+          setUser(null);
+        }
       }
 
       // Check biometric availability
@@ -77,7 +91,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const authenticateWithBiometrics = async () => {
-    if (!biometricAvailable) return false;
+    if (!biometricAvailable) {
+      return { success: false, reason: 'Biometric hardware not available on this device' };
+    }
+    const existingToken = await getToken();
+    if (!existingToken) {
+      return { success: false, reason: 'NO_SAVED_SESSION' };
+    }
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'RLJIT Arcade Biometric Login',
@@ -85,9 +105,31 @@ export const AuthProvider = ({ children }) => {
         fallbackLabel: 'Enter Password',
         disableDeviceFallback: false,
       });
-      return result.success;
+      if (!result.success) {
+        return { success: false, reason: 'Biometric authentication cancelled or failed' };
+      }
+
+      const activeToken = await getToken();
+      if (!activeToken) {
+        return { success: false, reason: 'NO_SAVED_SESSION' };
+      }
+
+      setTokenState(activeToken);
+      const profileRes = await api.get('/api/v1/profile/me');
+      if (profileRes.data?.profile) {
+        setUser(profileRes.data.profile);
+        return { success: true };
+      }
+
+      await removeToken();
+      setTokenState(null);
+      setUser(null);
+      return { success: false, reason: 'SESSION_EXPIRED' };
     } catch {
-      return false;
+      await removeToken();
+      setTokenState(null);
+      setUser(null);
+      return { success: false, reason: 'SESSION_EXPIRED' };
     }
   };
 
@@ -128,21 +170,21 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Screen privacy helper: prevent screenshots on sensitive screens
-  const enableScreenPrivacy = async () => {
+  const enableScreenPrivacy = useCallback(async () => {
     try {
       if (Platform.OS !== 'web') {
         await ScreenCapture.preventScreenCaptureAsync();
       }
     } catch {}
-  };
+  }, []);
 
-  const disableScreenPrivacy = async () => {
+  const disableScreenPrivacy = useCallback(async () => {
     try {
       if (Platform.OS !== 'web') {
         await ScreenCapture.allowScreenCaptureAsync();
       }
     } catch {}
-  };
+  }, []);
 
   return (
     <AuthContext.Provider

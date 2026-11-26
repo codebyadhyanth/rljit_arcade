@@ -6,15 +6,38 @@
  */
 
 export const EXTENSIONS_SQL = `
-  CREATE EXTENSION IF NOT EXISTS pg_trgm;
-  CREATE EXTENSION IF NOT EXISTS pgcrypto;
-  CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-  CREATE EXTENSION IF NOT EXISTS "btree_gist";
+  DO $$
+  BEGIN
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
+        CREATE EXTENSION IF NOT EXISTS pg_trgm;
+      END IF;
+    EXCEPTION WHEN unique_violation OR duplicate_object THEN NULL;
+    END;
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
+      END IF;
+    EXCEPTION WHEN unique_violation OR duplicate_object THEN NULL;
+    END;
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') THEN
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+      END IF;
+    EXCEPTION WHEN unique_violation OR duplicate_object THEN NULL;
+    END;
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'btree_gist') THEN
+        CREATE EXTENSION IF NOT EXISTS "btree_gist";
+      END IF;
+    EXCEPTION WHEN unique_violation OR duplicate_object THEN NULL;
+    END;
+  END $$;
 `;
 
 export const ID_SEQUENCES_SCHEMA = `
   CREATE TABLE IF NOT EXISTS id_sequences (
-    prefix VARCHAR(32) PRIMARY KEY,
+    prefix VARCHAR(64) PRIMARY KEY,
     last_seq INT NOT NULL DEFAULT 0
   );
 `;
@@ -22,7 +45,7 @@ export const ID_SEQUENCES_SCHEMA = `
 export const USERS_SCHEMA = `
   CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username VARCHAR(32) UNIQUE NOT NULL,
+    username VARCHAR(64) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     full_name_encrypted TEXT NOT NULL,
     email_encrypted TEXT NOT NULL,
@@ -33,7 +56,7 @@ export const USERS_SCHEMA = `
     admin_tier VARCHAR(20) CHECK (admin_tier IS NULL OR admin_tier IN ('SUPER_ADMIN', 'REGULAR_ADMIN', 'HOD_ADMIN')),
     sub_roles TEXT[] DEFAULT '{}',
     permissions TEXT[] DEFAULT '{}',
-    department VARCHAR(16),
+    department VARCHAR(32),
     section_code VARCHAR(16),
     admission_year INT,
     semester INT,
@@ -68,7 +91,9 @@ export const ROLE_SCHEMAS = {
       full_name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE,
       department VARCHAR(100),
+      core_branch VARCHAR(16),
       semester INT,
+      academic_year INT,
       section VARCHAR(10),
       entry_type VARCHAR(50) DEFAULT 'REGULAR',
       lg_faculty_id UUID REFERENCES users(id),
@@ -88,6 +113,7 @@ export const ROLE_SCHEMAS = {
       email VARCHAR(255) UNIQUE,
       department VARCHAR(100),
       designation VARCHAR(100),
+      classification VARCHAR(32),
       cabin_room VARCHAR(32),
       is_lg_coordinator BOOLEAN DEFAULT FALSE,
       is_hod BOOLEAN DEFAULT FALSE,
@@ -251,11 +277,16 @@ export const DOMAIN_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS venues (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) UNIQUE NOT NULL,
+    code VARCHAR(32) UNIQUE,
     type VARCHAR(50) NOT NULL CHECK (type IN ('AUDITORIUM', 'SEMINAR_HALL', 'CONFERENCE_ROOM', 'LAB', 'OPEN_AIR_THEATRE')),
+    category VARCHAR(50),
     department VARCHAR(32),
+    building VARCHAR(100),
+    floor VARCHAR(50),
     location_details TEXT,
     capacity INTEGER NOT NULL CHECK (capacity > 0),
     facilities JSONB DEFAULT '[]'::jsonb,
+    amenities TEXT[] DEFAULT '{}',
     is_active BOOLEAN DEFAULT TRUE,
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -267,17 +298,22 @@ export const DOMAIN_TABLES_SQL = `
     booking_code VARCHAR(50) UNIQUE NOT NULL,
     venue_id UUID NOT NULL REFERENCES venues(id) ON DELETE RESTRICT,
     initiator_id UUID NOT NULL REFERENCES users(id),
+    requested_by UUID REFERENCES users(id),
     initiator_role VARCHAR(20) NOT NULL CHECK (initiator_role IN ('STUDENT', 'FACULTY', 'ADMIN')),
     coordinator_id UUID NOT NULL REFERENCES users(id),
     department VARCHAR(32) NOT NULL,
     event_title VARCHAR(255) NOT NULL,
     purpose TEXT NOT NULL,
     expected_headcount INTEGER NOT NULL CHECK (expected_headcount > 0),
+    booking_date DATE,
+    start_time VARCHAR(16),
+    end_time VARCHAR(16),
     event_start_time TIMESTAMPTZ NOT NULL,
     event_end_time TIMESTAMPTZ NOT NULL,
     buffered_time_range TSTZRANGE NOT NULL,
     status VARCHAR(30) DEFAULT 'PENDING_HOD' NOT NULL CHECK (status IN (
       'PENDING_HOD',
+      'PENDING_MANAGEMENT',
       'PENDING_PRINCIPAL',
       'PARTIALLY_ACCEPTED',
       'APPROVED',
@@ -285,8 +321,12 @@ export const DOMAIN_TABLES_SQL = `
       'CANCELLED'
     )),
     active_terms_and_conditions JSONB,
+    reviewed_by UUID REFERENCES users(id),
+    remarks TEXT,
     hod_approved_by UUID REFERENCES users(id),
     hod_approved_at TIMESTAMPTZ,
+    management_approved_by UUID REFERENCES users(id),
+    management_approved_at TIMESTAMPTZ,
     principal_approved_by UUID REFERENCES users(id),
     principal_approved_at TIMESTAMPTZ,
     rejection_reason TEXT,
@@ -298,7 +338,7 @@ export const DOMAIN_TABLES_SQL = `
     CONSTRAINT prevent_venue_double_booking EXCLUDE USING gist (
       venue_id WITH =,
       buffered_time_range WITH &&
-    ) WHERE (status IN ('PENDING_HOD', 'PENDING_PRINCIPAL', 'PARTIALLY_ACCEPTED', 'APPROVED'))
+    ) WHERE (status IN ('PENDING_HOD', 'PENDING_MANAGEMENT', 'PENDING_PRINCIPAL', 'PARTIALLY_ACCEPTED', 'APPROVED'))
   );
 
   CREATE TABLE IF NOT EXISTS booking_timeline_logs (
@@ -311,6 +351,9 @@ export const DOMAIN_TABLES_SQL = `
       'HOD_APPROVED',
       'HOD_PARTIAL_TERMS',
       'HOD_REJECTED',
+      'MANAGEMENT_APPROVED',
+      'MANAGEMENT_PARTIAL_TERMS',
+      'MANAGEMENT_REJECTED',
       'PRINCIPAL_APPROVED',
       'PRINCIPAL_PARTIAL_TERMS',
       'PRINCIPAL_REJECTED',
@@ -346,21 +389,253 @@ export const DOMAIN_TABLES_SQL = `
     created_at TIMESTAMPTZ DEFAULT NOW(),
     responded_at TIMESTAMPTZ
   );
+
+  -- Module 7: Normalized Operational Tables (Timetable Slots, Attendance, CIE Marks, Placements, Finance Records)
+  CREATE TABLE IF NOT EXISTS timetable_slots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    department VARCHAR(32),
+    semester INT,
+    section VARCHAR(8),
+    day_of_week INT,
+    period_no INT,
+    start_time VARCHAR(16),
+    end_time VARCHAR(16),
+    subject_code VARCHAR(24),
+    subject_name VARCHAR(120),
+    faculty_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    room_no VARCHAR(32),
+    swapped_faculty_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    swap_status VARCHAR(20),
+    swap_requested_by UUID REFERENCES users(id),
+    swap_date DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(department, semester, section, day_of_week, period_no)
+  );
+
+  CREATE TABLE IF NOT EXISTS attendance_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    faculty_id UUID NOT NULL REFERENCES users(id),
+    department VARCHAR(32) NOT NULL,
+    semester INT NOT NULL,
+    section VARCHAR(8) NOT NULL,
+    subject_code VARCHAR(24) NOT NULL,
+    attendance_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    period_no INT NOT NULL DEFAULT 1,
+    status VARCHAR(16) NOT NULL CHECK (status IN ('PRESENT', 'ABSENT', 'LATE')),
+    entry_mode VARCHAR(20) NOT NULL DEFAULT 'MANUAL',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, subject_code, attendance_date, period_no)
+  );
+
+  CREATE TABLE IF NOT EXISTS cie_marks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    faculty_id UUID NOT NULL REFERENCES users(id),
+    department VARCHAR(32) NOT NULL,
+    semester INT NOT NULL,
+    subject_code VARCHAR(24) NOT NULL,
+    subject_name VARCHAR(120),
+    cie1 NUMERIC(5,2) DEFAULT 0.00,
+    cie2 NUMERIC(5,2) DEFAULT 0.00,
+    cie3 NUMERIC(5,2) DEFAULT 0.00,
+    assignment NUMERIC(5,2) DEFAULT 0.00,
+    total_cie NUMERIC(5,2) DEFAULT 0.00,
+    max_marks NUMERIC(5,2) DEFAULT 50.00,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, semester, subject_code)
+  );
+
+  CREATE TABLE IF NOT EXISTS placement_drives (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_name VARCHAR(120) NOT NULL,
+    role_title VARCHAR(120) NOT NULL,
+    package_lpa NUMERIC(6,2) NOT NULL,
+    min_cgpa NUMERIC(4,2) DEFAULT 0.00,
+    eligible_branches TEXT[] DEFAULT '{}',
+    drive_date DATE NOT NULL,
+    status VARCHAR(24) DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'CLOSED', 'COMPLETED')),
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS placement_applications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    drive_id UUID NOT NULL REFERENCES placement_drives(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(24) DEFAULT 'APPLIED' CHECK (status IN ('APPLIED', 'SHORTLISTED', 'SELECTED', 'REJECTED')),
+    applied_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(drive_id, student_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS finance_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    fee_type VARCHAR(64) NOT NULL,
+    amount_due NUMERIC(10,2) NOT NULL,
+    amount_paid NUMERIC(10,2) DEFAULT 0.00,
+    fine_amount NUMERIC(10,2) DEFAULT 0.00,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PAID', 'PARTIAL', 'PENDING')),
+    due_date DATE,
+    updated_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  -- Module 8: Institutional Metadata & Tiered Document Vault
+  CREATE TABLE IF NOT EXISTS college_metadata (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    section_key VARCHAR(64) UNIQUE NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content JSONB NOT NULL DEFAULT '{}'::jsonb,
+    source_url TEXT,
+    updated_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS institutional_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(64) NOT NULL,
+    department VARCHAR(32),
+    semester INT,
+    subject_code VARCHAR(32),
+    access_tier VARCHAR(32) NOT NULL CHECK (access_tier IN (
+      'STUDENT_PUBLIC',
+      'FACULTY_INTERNAL',
+      'HOD_AND_ADMIN',
+      'SENSITIVE_ADMIN'
+    )),
+    file_name VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(128) NOT NULL,
+    file_size BIGINT DEFAULT 0,
+    storage_path TEXT NOT NULL,
+    uploaded_by UUID REFERENCES users(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
 `;
 
 export const VENUE_MIGRATIONS_SQL = `
-  -- Ensure prevent_venue_double_booking constraint exists if table pre-existed
+  -- Non-breaking venue & booking extensions
+  ALTER TABLE venues ADD COLUMN IF NOT EXISTS code VARCHAR(32) UNIQUE;
+  ALTER TABLE venues ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+  ALTER TABLE venues ADD COLUMN IF NOT EXISTS building VARCHAR(100);
+  ALTER TABLE venues ADD COLUMN IF NOT EXISTS floor VARCHAR(50);
+  ALTER TABLE venues ADD COLUMN IF NOT EXISTS amenities TEXT[] DEFAULT '{}';
+
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS requested_by UUID REFERENCES users(id);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS booking_date DATE;
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS start_time VARCHAR(16);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS end_time VARCHAR(16);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES users(id);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS remarks TEXT;
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS management_approved_by UUID REFERENCES users(id);
+  ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS management_approved_at TIMESTAMPTZ;
+
+  -- Dynamically drop any old CHECK constraint on venue_bookings.status and recreate venue_bookings_status_check
   DO $$
+  DECLARE
+    r RECORD;
   BEGIN
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint WHERE conname = 'prevent_venue_double_booking'
-    ) THEN
+    FOR r IN
+      SELECT c.conname
+      FROM pg_constraint c
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+      WHERE c.conrelid = 'venue_bookings'::regclass
+        AND c.contype = 'c'
+        AND a.attname = 'status'
+    LOOP
+      EXECUTE format('ALTER TABLE venue_bookings DROP CONSTRAINT IF EXISTS %I', r.conname);
+    END LOOP;
+
+    ALTER TABLE venue_bookings
+    ADD CONSTRAINT venue_bookings_status_check
+    CHECK (status IN (
+      'PENDING_HOD',
+      'PENDING_MANAGEMENT',
+      'PENDING_PRINCIPAL',
+      'PARTIALLY_ACCEPTED',
+      'APPROVED',
+      'REJECTED',
+      'CANCELLED'
+    ));
+  END $$;
+
+  -- Ensure prevent_venue_double_booking includes PENDING_MANAGEMENT
+  DO $$
+  DECLARE
+    con_def TEXT;
+  BEGIN
+    SELECT pg_get_constraintdef(oid) INTO con_def
+    FROM pg_constraint
+    WHERE conrelid = 'venue_bookings'::regclass
+      AND conname = 'prevent_venue_double_booking';
+
+    IF con_def IS NOT NULL AND position('PENDING_MANAGEMENT' in con_def) = 0 THEN
+      ALTER TABLE venue_bookings DROP CONSTRAINT prevent_venue_double_booking;
+      con_def := NULL;
+    END IF;
+
+    IF con_def IS NULL THEN
       ALTER TABLE venue_bookings
       ADD CONSTRAINT prevent_venue_double_booking
       EXCLUDE USING gist (
         venue_id WITH =,
         buffered_time_range WITH &&
-      ) WHERE (status IN ('PENDING_HOD', 'PENDING_PRINCIPAL', 'PARTIALLY_ACCEPTED', 'APPROVED'));
+      ) WHERE (status IN ('PENDING_HOD', 'PENDING_MANAGEMENT', 'PENDING_PRINCIPAL', 'PARTIALLY_ACCEPTED', 'APPROVED'));
+    END IF;
+  END $$;
+
+  -- Allow MANAGEMENT_APPROVED, MANAGEMENT_PARTIAL_TERMS, and MANAGEMENT_REJECTED in booking_timeline_logs action CHECK
+  DO $$
+  DECLARE
+    r RECORD;
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conrelid = 'booking_timeline_logs'::regclass
+        AND conname = 'booking_timeline_logs_action_check'
+        AND position('MANAGEMENT_PARTIAL_TERMS' in pg_get_constraintdef(oid)) > 0
+        AND position('MANAGEMENT_APPROVED' in pg_get_constraintdef(oid)) > 0
+        AND position('MANAGEMENT_REJECTED' in pg_get_constraintdef(oid)) > 0
+    ) THEN
+      FOR r IN
+        SELECT c.conname
+        FROM pg_constraint c
+        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+        WHERE c.conrelid = 'booking_timeline_logs'::regclass
+          AND c.contype = 'c'
+          AND a.attname = 'action'
+      LOOP
+        EXECUTE format('ALTER TABLE booking_timeline_logs DROP CONSTRAINT IF EXISTS %I', r.conname);
+      END LOOP;
+
+      ALTER TABLE booking_timeline_logs
+      ADD CONSTRAINT booking_timeline_logs_action_check
+      CHECK (action IN (
+        'INITIATED',
+        'HOD_APPROVED',
+        'HOD_PARTIAL_TERMS',
+        'HOD_REJECTED',
+        'MANAGEMENT_APPROVED',
+        'MANAGEMENT_PARTIAL_TERMS',
+        'MANAGEMENT_REJECTED',
+        'PRINCIPAL_APPROVED',
+        'PRINCIPAL_PARTIAL_TERMS',
+        'PRINCIPAL_REJECTED',
+        'COORDINATOR_AGREED_TERMS',
+        'COORDINATOR_COUNTER_PROPOSAL',
+        'VENUE_CHANGE_REQUESTED',
+        'TRANSFER_REQUESTED',
+        'TRANSFER_APPROVED',
+        'TRANSFER_REJECTED',
+        'CANCELLED'
+      ));
     END IF;
   END $$;
 
@@ -373,6 +648,7 @@ export const VENUE_MIGRATIONS_SQL = `
   CREATE INDEX IF NOT EXISTS idx_venue_bookings_coordinator ON venue_bookings (coordinator_id);
   CREATE INDEX IF NOT EXISTS idx_venue_bookings_status ON venue_bookings (status);
   CREATE INDEX IF NOT EXISTS idx_venue_bookings_dept ON venue_bookings (department);
+  CREATE INDEX IF NOT EXISTS idx_venue_bookings_date ON venue_bookings (booking_date);
   CREATE INDEX IF NOT EXISTS idx_venue_bookings_cooldown ON venue_bookings (venue_id, status, cancelled_at);
   CREATE INDEX IF NOT EXISTS idx_booking_timeline_booking ON booking_timeline_logs (booking_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_venue_transfers_booking ON venue_transfer_requests (booking_id);
@@ -380,6 +656,15 @@ export const VENUE_MIGRATIONS_SQL = `
 `;
 
 export const MIGRATIONS_SQL = `
+  -- Non-breaking column widenings
+  ALTER TABLE users ALTER COLUMN username TYPE VARCHAR(64);
+  ALTER TABLE users ALTER COLUMN department TYPE VARCHAR(32);
+  ALTER TABLE id_sequences ALTER COLUMN prefix TYPE VARCHAR(64);
+  ALTER TABLE timetables ALTER COLUMN department TYPE VARCHAR(32);
+  ALTER TABLE ocr_staging_batches ALTER COLUMN department TYPE VARCHAR(32);
+  ALTER TABLE academic_records ALTER COLUMN department TYPE VARCHAR(32);
+  ALTER TABLE record_unlock_requests ALTER COLUMN department TYPE VARCHAR(32);
+
   -- Users table migrations
   ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT DEFAULT 1;
@@ -392,10 +677,13 @@ export const MIGRATIONS_SQL = `
   ALTER TABLE student ADD COLUMN IF NOT EXISTS parent_whatsapp_encrypted TEXT;
   ALTER TABLE student ADD COLUMN IF NOT EXISTS admission_quota VARCHAR(32) DEFAULT 'KEA_CET';
   ALTER TABLE student ADD COLUMN IF NOT EXISTS cgpa NUMERIC(4,2) DEFAULT 0.00;
+  ALTER TABLE student ADD COLUMN IF NOT EXISTS core_branch VARCHAR(16);
+  ALTER TABLE student ADD COLUMN IF NOT EXISTS academic_year INT;
 
   -- Faculty table migrations
   ALTER TABLE faculty ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
   ALTER TABLE faculty ADD COLUMN IF NOT EXISTS cabin_room VARCHAR(32);
+  ALTER TABLE faculty ADD COLUMN IF NOT EXISTS classification VARCHAR(32);
 
   -- Admin table migrations
   ALTER TABLE admin ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE;
@@ -409,6 +697,22 @@ export const MIGRATIONS_SQL = `
   CREATE INDEX IF NOT EXISTS idx_academic_records_lookup ON academic_records (student_usn, subject_code, record_type);
   CREATE INDEX IF NOT EXISTS idx_finance_ledgers_usn ON finance_ledgers (student_usn);
   CREATE INDEX IF NOT EXISTS idx_student_documents_usn ON student_documents (student_usn);
+
+  -- B-Tree & FK indexes on new normalized domain tables
+  CREATE INDEX IF NOT EXISTS idx_timetable_slots_dept_sem ON timetable_slots (department, semester, section);
+  CREATE INDEX IF NOT EXISTS idx_timetable_slots_faculty ON timetable_slots (faculty_id);
+  CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendance_records (student_id, attendance_date);
+  CREATE INDEX IF NOT EXISTS idx_attendance_section ON attendance_records (department, semester, section, attendance_date);
+  CREATE INDEX IF NOT EXISTS idx_cie_student ON cie_marks (student_id, semester);
+  CREATE INDEX IF NOT EXISTS idx_cie_section ON cie_marks (department, semester, subject_code);
+  CREATE INDEX IF NOT EXISTS idx_placement_apps_drive ON placement_applications (drive_id);
+  CREATE INDEX IF NOT EXISTS idx_placement_apps_student ON placement_applications (student_id);
+  CREATE INDEX IF NOT EXISTS idx_finance_records_student ON finance_records (student_id, status);
+
+  -- B-Tree indexes on Module 8 institutional_documents
+  CREATE INDEX IF NOT EXISTS idx_institutional_docs_access_tier ON institutional_documents (access_tier);
+  CREATE INDEX IF NOT EXISTS idx_institutional_docs_category ON institutional_documents (category);
+  CREATE INDEX IF NOT EXISTS idx_institutional_docs_department ON institutional_documents (department);
 `;
 
 export const VALID_ROLES = ['student', 'faculty', 'admin'];

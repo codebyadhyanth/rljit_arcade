@@ -38,7 +38,6 @@ export default function MainAppScreen({ navigation }) {
     { id: 'profile', label: 'Profile', icon: ShieldCheck },
   ];
 
-  const userDisplayName = user?.fullName || user?.username || 'Authorized User';
   const userInitials = (user?.fullName || user?.username || 'U')
     .split(' ')
     .map((n) => n[0])

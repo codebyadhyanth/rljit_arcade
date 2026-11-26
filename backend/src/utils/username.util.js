@@ -26,13 +26,14 @@ export async function getNextSequence(prefix, startSeq = 1, dbClient = pool) {
  * @param {string} [options.adminTier] 'SUPER_ADMIN', 'REGULAR_ADMIN', 'HOD_ADMIN'
  * @param {string} [options.sectionCode] 'ADM', 'ACC', 'PLC', 'SPT'
  * @param {string} [options.department] e.g. 'CS', 'IS', 'EC', 'ME'
+ * @param {string} [options.coreBranch] optional core branch override for student USN (e.g. 'CSE' when department is 'ALLIED_SCIENCE')
  * @param {number} [options.admissionYear] e.g. 2026
  * @param {string} [options.entryType] 'REGULAR' or 'LATERAL'
  * @param {object} [dbClient] pg client or pool
  * @returns {Promise<string>} generated username
  */
 export async function generateUsername(
-  { role, adminTier, sectionCode, department, admissionYear, entryType },
+  { role, adminTier, sectionCode, department, coreBranch, admissionYear, entryType },
   dbClient = pool
 ) {
   const currentYear = new Date().getFullYear();
@@ -72,12 +73,13 @@ export async function generateUsername(
 
   // 5. STUDENT -> REGULAR: 1RL${YY}${DEPT}001, LATERAL: 1RL${YY}${DEPT}401
   if (role === 'STUDENT') {
-    if (!dept) throw new Error('Department is required for Student USN generation');
+    const usnDept = (coreBranch || department || '').trim().toUpperCase();
+    if (!usnDept) throw new Error('Department is required for Student USN generation');
     const isLateral = String(entryType || '').trim().toUpperCase() === 'LATERAL';
     const startSeq = isLateral ? 401 : 1;
-    const prefix = isLateral ? `1RL${yy}${dept}_LAT` : `1RL${yy}${dept}_REG`;
+    const prefix = isLateral ? `1RL${yy}${usnDept}_LAT` : `1RL${yy}${usnDept}_REG`;
     const seq = await getNextSequence(prefix, startSeq, dbClient);
-    return `1RL${yy}${dept}${String(seq).padStart(3, '0')}`;
+    return `1RL${yy}${usnDept}${String(seq).padStart(3, '0')}`;
   }
 
   throw new Error(`Unable to generate username: unknown role configuration`);

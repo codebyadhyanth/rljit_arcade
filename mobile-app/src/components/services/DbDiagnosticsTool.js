@@ -151,7 +151,9 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   backBtn: {
-    marginBottom: 10,
+    minHeight: 48,
+    justifyContent: 'center',
+    marginBottom: 6,
   },
   backBtnText: {
     fontSize: 12,
@@ -176,12 +178,14 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
+    minHeight: 48,
     backgroundColor: '#FBFBFC',
     borderWidth: 1,
     borderColor: Colors.hairlineBorder,
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   actionBtnDark: {
     backgroundColor: Colors.surfaceDark,

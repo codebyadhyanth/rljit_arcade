@@ -39,6 +39,17 @@ export function getCorsOptions() {
   };
 }
 
+const LOOPBACK_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+/**
+ * Checks if request originates from local loopback so local bulk scripts are not throttled
+ */
+export function isLoopbackRequest(req) {
+  const ip = req?.ip || '';
+  const remoteAddress = req?.socket?.remoteAddress || '';
+  return LOOPBACK_IPS.has(ip) || LOOPBACK_IPS.has(remoteAddress);
+}
+
 /**
  * General API rate limiter: 200 requests per 15 minutes
  */
@@ -47,6 +58,7 @@ export const generalApiLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isLoopbackRequest,
   message: {
     success: false,
     error: 'Too many requests from this IP, please try again after 15 minutes.',
@@ -61,6 +73,7 @@ export const authLimiter = rateLimit({
   max: 25,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isLoopbackRequest,
   message: {
     success: false,
     error: 'Too many authentication attempts, please try again after 15 minutes.',
@@ -79,6 +92,7 @@ export const hppMiddleware = hpp();
 
 export default {
   getCorsOptions,
+  isLoopbackRequest,
   generalApiLimiter,
   authLimiter,
   helmetMiddleware,

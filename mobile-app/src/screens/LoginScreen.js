@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { getBaseUrl, setBaseUrl } from '../config/api';
+import { getBaseUrl, initBaseUrl, setBaseUrl } from '../config/api';
 import Colors from '../theme/colors';
 import DbReceiptCard from '../components/DbReceiptCard';
 
@@ -38,13 +38,29 @@ export default function LoginScreen({ navigation }) {
 
   // Bootstrap Accordion
   const [showBootstrap, setShowBootstrap] = useState(false);
-  const [bootKey, setBootKey] = useState('RLJIT_SUPER_MASTERMIND_BOOTSTRAP_KEY_2026');
-  const [bootFullName, setBootFullName] = useState('Super Admin Mastermind');
-  const [bootEmail, setBootEmail] = useState('superadmin@rljit.ac.in');
-  const [bootPhone, setBootPhone] = useState('+919888877777');
-  const [bootPassword, setBootPassword] = useState('p$4K9!vQ2#xM');
+  const [bootKey, setBootKey] = useState('');
+  const [bootFullName, setBootFullName] = useState('');
+  const [bootEmail, setBootEmail] = useState('');
+  const [bootPhone, setBootPhone] = useState('');
+  const [bootPassword, setBootPassword] = useState('');
   const [bootResult, setBootResult] = useState(null);
   const [bootError, setBootError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    initBaseUrl().then((url) => {
+      if (mounted && url) setServerUrl(url);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (showServerConfig) {
+      setServerUrl(getBaseUrl());
+    }
+  }, [showServerConfig]);
 
   const handleLogin = async () => {
     setError('');
@@ -66,11 +82,16 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleBiometricAuth = async () => {
-    const success = await authenticateWithBiometrics();
-    if (success) {
+    setError('');
+    const authRes = await authenticateWithBiometrics();
+    if (authRes?.success) {
       navigation.replace('MainApp');
+    } else if (authRes?.reason === 'NO_SAVED_SESSION') {
+      setError('Sign in once with password to enable biometric quick unlock');
+    } else if (authRes?.reason === 'SESSION_EXPIRED') {
+      setError('Saved session expired. Sign in once with password to enable biometric quick unlock');
     } else {
-      setError('Biometric authentication cancelled or failed');
+      setError(authRes?.reason || 'Biometric authentication cancelled or failed');
     }
   };
 
@@ -244,6 +265,8 @@ export default function LoginScreen({ navigation }) {
                     style={styles.miniInput}
                     value={bootKey}
                     onChangeText={setBootKey}
+                    placeholder="Enter x-bootstrap-key"
+                    placeholderTextColor={Colors.textMuted}
                     autoCapitalize="none"
                   />
 
@@ -252,6 +275,8 @@ export default function LoginScreen({ navigation }) {
                     style={styles.miniInput}
                     value={bootFullName}
                     onChangeText={setBootFullName}
+                    placeholder="e.g. Super Admin Mastermind"
+                    placeholderTextColor={Colors.textMuted}
                   />
 
                   <Text style={styles.miniLabel}>Email</Text>
@@ -259,6 +284,8 @@ export default function LoginScreen({ navigation }) {
                     style={styles.miniInput}
                     value={bootEmail}
                     onChangeText={setBootEmail}
+                    placeholder="e.g. superadmin@rljit.ac.in"
+                    placeholderTextColor={Colors.textMuted}
                     autoCapitalize="none"
                     keyboardType="email-address"
                   />
@@ -268,6 +295,8 @@ export default function LoginScreen({ navigation }) {
                     style={styles.miniInput}
                     value={bootPhone}
                     onChangeText={setBootPhone}
+                    placeholder="e.g. +919888877777"
+                    placeholderTextColor={Colors.textMuted}
                     keyboardType="phone-pad"
                   />
 
@@ -276,6 +305,9 @@ export default function LoginScreen({ navigation }) {
                     style={styles.miniInput}
                     value={bootPassword}
                     onChangeText={setBootPassword}
+                    placeholder="Enter strong password (min 8 chars)"
+                    placeholderTextColor={Colors.textMuted}
+                    secureTextEntry
                     autoCapitalize="none"
                   />
 
@@ -449,7 +481,11 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   maskToggle: {
-    padding: 6,
+    minHeight: 48,
+    minWidth: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
   },
   maskToggleText: {
     fontSize: 11,
@@ -494,6 +530,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 48,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.hairlineBorder,
@@ -553,15 +590,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.hairlineBorder,
     borderRadius: 10,
-    paddingHorizontal: 10,
-    height: 40,
-    fontSize: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 48,
+    fontSize: 13,
     color: Colors.textPrimary,
   },
   bootstrapBtn: {
     backgroundColor: Colors.surfaceDark,
     borderRadius: 10,
-    height: 42,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
@@ -575,11 +613,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 48,
     paddingVertical: 12,
   },
   serverHeaderText: {
     fontSize: 11,
     color: Colors.textMuted,
+    flex: 1,
+    paddingRight: 8,
   },
   serverBox: {
     flexDirection: 'row',
@@ -594,13 +635,16 @@ const styles = StyleSheet.create({
     borderColor: Colors.hairlineBorder,
     borderRadius: 10,
     paddingHorizontal: 10,
-    height: 40,
+    paddingVertical: 10,
+    minHeight: 48,
     fontSize: 12,
     color: Colors.textPrimary,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   saveServerBtn: {
     backgroundColor: Colors.surfaceDark,
+    minHeight: 48,
+    minWidth: 64,
     paddingHorizontal: 14,
     borderRadius: 10,
     justifyContent: 'center',

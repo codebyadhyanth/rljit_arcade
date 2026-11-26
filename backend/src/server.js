@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -20,6 +21,9 @@ import academicRoutes from './routes/academic.routes.js';
 import lgRoutes from './routes/lg.routes.js';
 import financeAndVaultRoutes from './routes/financeAndVault.routes.js';
 import venueRoutes from './routes/venue.routes.js';
+import portalsRoutes from './routes/portals.routes.js';
+import documentRoutes from './routes/document.routes.js';
+import analyzerRoutes from './routes/analyzer.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,11 +35,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Ensure upload directories exist for static asset serving
-const UPLOADS_DIR = path.resolve(__dirname, '../uploads');
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+// Ensure guarded avatar-only public upload directory exists (vault & ocr remain private)
+const AVATARS_DIR = path.resolve(__dirname, '../uploads/avatars');
+fs.mkdirSync(AVATARS_DIR, { recursive: true });
 
 // 1. Core Security & Header Hardening
 app.use(helmetMiddleware);
@@ -46,11 +48,16 @@ app.use(cors(getCorsOptions()));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
-// 3. Static Uploads File Server
-app.use('/uploads', express.static(UPLOADS_DIR));
+// 3. Guarded Avatar-Only Static Assets (NEVER expose /uploads/vault, /uploads/ocr, or private_vault)
+app.use('/uploads/avatars', express.static(AVATARS_DIR, { dotfiles: 'deny', index: false }));
 
-// 4. General Rate Limiter for all API routes
-app.use('/api', generalApiLimiter);
+function applyGeneralLimiterOnce(req, res, next) {
+  if (req._generalRateLimited) {
+    return next();
+  }
+  req._generalRateLimited = true;
+  return generalApiLimiter(req, res, next);
+}
 
 // Root health check endpoint
 app.get('/', (req, res) => {
@@ -64,14 +71,22 @@ app.get('/', (req, res) => {
       dbDiagnostics: '/db:rljit_arcade/connect',
       dbStorageVerifier: '/api/v1/db/verify-storage',
       auth: '/api/v1/auth/login',
+      venues: '/api/v1/venues',
+      placements: '/api/v1/placements/drives',
+      financeRecords: '/api/v1/finance/records',
+      analytics: '/api/v1/analytics/overview',
+      documents: '/api/v1/documents',
+      collegeInfo: '/api/v1/college-info',
+      analyzer: '/api/v1/analyzer/summary',
     },
   });
 });
 
-// 5. Postman diagnostic and database routes
+// 4. Postman diagnostic and database routes (backward-compatible)
 app.use(dbRoutes);
 
-// 6. Feature Routers mounted under /api/v1 and root alias for flexible routing
+// 5. Feature Routers mounted under /api/v1 and root alias with single-pass rate limiting
+const apiRouter = express.Router();
 const routers = [
   authRoutes,
   profileRoutes,
@@ -80,14 +95,19 @@ const routers = [
   lgRoutes,
   financeAndVaultRoutes,
   venueRoutes,
+  portalsRoutes,
+  documentRoutes,
+  analyzerRoutes,
 ];
 
 routers.forEach((r) => {
-  app.use('/api/v1', r);
-  app.use(r);
+  apiRouter.use(r);
 });
 
-// 7. 404 Catch-all handler
+app.use('/api/v1', applyGeneralLimiterOnce, apiRouter);
+app.use(applyGeneralLimiterOnce, apiRouter);
+
+// 6. 404 Catch-all handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -95,16 +115,42 @@ app.use((req, res) => {
   });
 });
 
-// 8. Global error handler
+// 7. Global & Multer error handler
 app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        success: false,
+        error: 'Uploaded file exceeds the maximum allowed size limit',
+        code: err.code,
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      error: err.message || 'File upload error',
+      code: err.code,
+    });
+  }
+
+  if (
+    err?.status === 400 ||
+    err?.statusCode === 400 ||
+    (typeof err?.message === 'string' && err.message.startsWith('Invalid file type.'))
+  ) {
+    return res.status(400).json({
+      success: false,
+      error: err.message || 'Bad Request',
+    });
+  }
+
   console.error('Unhandled server error:', err);
-  res.status(err.status || 500).json({
+  return res.status(err.status || err.statusCode || 500).json({
     success: false,
     error: err.message || 'Internal Server Error',
   });
 });
 
-// 9. Start HTTP server
+// 8. Start HTTP server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`RLJIT Arcade server running on http://0.0.0.0:${PORT}`);
 });

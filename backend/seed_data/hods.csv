@@ -1,0 +1,12 @@
+authorityType,fullName,email,phone,department,classification,designation,cabinRoom,subRoles
+HOD,Dr. Nagesh Bhat,hod.aiml@rljit.edu.in,+919900100008,AIML,Professor & HOD,Professor & Head of Department,AI-100,HOD
+HOD,Dr. Manju,hod.ds@rljit.edu.in,+919980100009,DS,Professor & HOD,Professor & Head of Department,DS-100,HOD
+HOD,Dr. Shashidhar Hegde,hod.cyber@rljit.edu.in,+919448100010,CYBER,Professor & HOD,Professor & Head of Department,CY-100,HOD
+HOD,Dr. Ramesh Sharma,hod.cse@rljit.edu.in,+919449100011,CSE,Professor & HOD,Professor & Head of Department,CS-100,HOD
+HOD,Dr. Venkatesh Patil,hod.me@rljit.edu.in,+919740100012,ME,Professor & HOD,Professor & Head of Department,ME-100,HOD
+HOD,Dr. Suma Kamath,hod.ece@rljit.edu.in,+919611100013,ECE,Professor & HOD,Professor & Head of Department,EC-100,HOD
+HOD,Dr. Madhukar Acharya,hod.allied_science@rljit.edu.in,+919535100014,ALLIED_SCIENCE,Professor & HOD,Professor & Head of Department,AS-100,HOD
+HOD,Dr. Padmavathi Iyer,hod.math_sci@rljit.edu.in,+918861100015,MATH_SCI,Professor & HOD,Professor & Head of Department,MS-100,HOD
+HOD,Dr. Girish Shenoy,hod.phy_chem@rljit.edu.in,+918197100016,PHY_CHEM,Professor & HOD,Professor & Head of Department,PC-100,HOD
+HOD,Dr. Anuradha Menon,hod.humanities@rljit.edu.in,+917892100017,HUMANITIES,Professor & HOD,Professor & Head of Department,HM-100,HOD
+HOD,Dr. Hariprasad Rao,hod.rnd_academics@rljit.edu.in,+917411100018,RND_ACADEMICS,Professor & HOD,Professor & Head of Department,RD-100,HOD

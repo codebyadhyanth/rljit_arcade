@@ -66,6 +66,15 @@ export async function bootstrapSuperAdmin(req, res) {
       password,
     } = req.body || {};
 
+    if (password !== undefined && password !== null) {
+      if (typeof password !== 'string' || password.trim().length === 0 || password.length < 8) {
+        return res.status(400).json({
+          success: false,
+          error: 'Custom password must be at least 8 characters long',
+        });
+      }
+    }
+
     const temporaryPassword = password || generateTempPassword(14);
     const passwordHash = await hashPassword(temporaryPassword);
 
@@ -174,13 +183,26 @@ export async function provisionAuthority(req, res) {
       department,
       sectionCode,
       subRoles = [],
-    } = req.body;
+      classification,
+      cabinRoom,
+      designation,
+      password,
+    } = req.body || {};
 
     if (!authorityType || !fullName || !email || !phone) {
       return res.status(400).json({
         success: false,
         error: 'authorityType, fullName, email, and phone are required',
       });
+    }
+
+    if (password !== undefined && password !== null) {
+      if (typeof password !== 'string' || password.trim().length === 0 || password.length < 8) {
+        return res.status(400).json({
+          success: false,
+          error: 'Custom password must be at least 8 characters long',
+        });
+      }
     }
 
     const authType = authorityType.toUpperCase();
@@ -196,7 +218,7 @@ export async function provisionAuthority(req, res) {
 
     // 1. REGULAR_ADMIN
     if (authType === 'REGULAR_ADMIN') {
-      const validSections = ['ADM', 'ACC', 'PLC', 'SPT'];
+      const validSections = ['ADM', 'ACC', 'PLC', 'SPT', 'MGT', 'PRN', 'EXM'];
       if (!sec || !validSections.includes(sec)) {
         return res.status(400).json({
           success: false,
@@ -208,6 +230,12 @@ export async function provisionAuthority(req, res) {
       adminTier = 'REGULAR_ADMIN';
       targetRoleTable = 'admin';
       if (!assignedSubRoles.includes(sec)) assignedSubRoles.push(sec);
+      if (sec === 'PRN' && !assignedSubRoles.includes('PRINCIPAL')) {
+        assignedSubRoles.push('PRINCIPAL');
+      }
+      if (sec === 'MGT' && !assignedSubRoles.includes('MANAGEMENT')) {
+        assignedSubRoles.push('MANAGEMENT');
+      }
 
       if (sec === 'ADM') {
         permissions = ['student:create:all', 'student:read:all', 'portal:admission:access'];
@@ -293,7 +321,7 @@ export async function provisionAuthority(req, res) {
       });
     }
 
-    const temporaryPassword = generateTempPassword(12);
+    const temporaryPassword = password || generateTempPassword(12);
     const passwordHash = await hashPassword(temporaryPassword);
 
     const fullNameEnc = encryptAES(fullName);
@@ -347,15 +375,32 @@ export async function provisionAuthority(req, res) {
 
     // Dual-table sync into corresponding role table linked via user_id
     if (baseRole === 'FACULTY') {
+      const defaultDesignation = adminTier === 'HOD_ADMIN' ? 'HOD' : 'Assistant Professor';
+      const cleanClassification = classification
+        ? String(classification).trim().slice(0, 32)
+        : adminTier === 'HOD_ADMIN'
+        ? 'HOD'
+        : designation
+        ? String(designation).trim().slice(0, 32)
+        : defaultDesignation;
+      const cleanDesignation = designation
+        ? String(designation).trim().slice(0, 100)
+        : classification
+        ? String(classification).trim().slice(0, 100)
+        : defaultDesignation;
+      const cleanCabinRoom = cabinRoom ? String(cabinRoom).trim().slice(0, 32) : null;
+
       await client.query(
-        `INSERT INTO faculty (user_id, emp_id, full_name, email, department, designation, is_hod)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO faculty (user_id, emp_id, full_name, email, department, designation, cabin_room, classification, is_hod)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (emp_id) DO UPDATE SET
            user_id = EXCLUDED.user_id,
            full_name = EXCLUDED.full_name,
            email = EXCLUDED.email,
            department = EXCLUDED.department,
            designation = EXCLUDED.designation,
+           cabin_room = COALESCE(EXCLUDED.cabin_room, faculty.cabin_room),
+           classification = COALESCE(EXCLUDED.classification, faculty.classification),
            is_hod = EXCLUDED.is_hod;`,
         [
           userRow.id,
@@ -363,7 +408,9 @@ export async function provisionAuthority(req, res) {
           fullName,
           email,
           dept,
-          adminTier === 'HOD_ADMIN' ? 'HOD' : 'Assistant Professor',
+          cleanDesignation,
+          cleanCabinRoom,
+          cleanClassification,
           adminTier === 'HOD_ADMIN',
         ]
       );
@@ -439,17 +486,32 @@ export async function provisionStudent(req, res) {
       email,
       phone,
       department,
+      coreBranch,
       admissionYear,
+      academicYear,
       semester,
+      section = 'A',
       entryType = 'REGULAR',
+      admissionQuota = 'KEA_CET',
+      cgpa = 0.00,
       subRoles = ['STUDENT'],
-    } = req.body;
+      password,
+    } = req.body || {};
 
     if (!fullName || !email || !phone || !department) {
       return res.status(400).json({
         success: false,
         error: 'fullName, email, phone, and department are required',
       });
+    }
+
+    if (password !== undefined && password !== null) {
+      if (typeof password !== 'string' || password.trim().length === 0 || password.length < 8) {
+        return res.status(400).json({
+          success: false,
+          error: 'Custom password must be at least 8 characters long',
+        });
+      }
     }
 
     const targetDept = department.trim().toUpperCase();
@@ -488,10 +550,65 @@ export async function provisionStudent(req, res) {
       });
     }
 
-    // Format fields
+    // Format and validate fields
     const entry = String(entryType).trim().toUpperCase() === 'LATERAL' ? 'LATERAL' : 'REGULAR';
-    const year = admissionYear ? parseInt(admissionYear, 10) : new Date().getFullYear();
-    const sem = semester ? parseInt(semester, 10) : (entry === 'LATERAL' ? 3 : 1);
+
+    let year = new Date().getFullYear();
+    if (admissionYear !== undefined && admissionYear !== null && String(admissionYear).trim() !== '') {
+      const yearStr = String(admissionYear).trim();
+      const parsedYear = Number(yearStr);
+      if (!/^\d{4}$/.test(yearStr) || !Number.isInteger(parsedYear) || parsedYear < 2000 || parsedYear > 2100) {
+        return res.status(400).json({
+          success: false,
+          error: 'admissionYear must be an integer between 2000 and 2100',
+        });
+      }
+      year = parsedYear;
+    }
+
+    let sem = entry === 'LATERAL' ? 3 : 1;
+    if (semester !== undefined && semester !== null && String(semester).trim() !== '') {
+      const semStr = String(semester).trim();
+      const parsedSem = Number(semStr);
+      if (!/^\d+$/.test(semStr) || !Number.isInteger(parsedSem) || parsedSem < 1 || parsedSem > 8) {
+        return res.status(400).json({
+          success: false,
+          error: 'semester must be an integer between 1 and 8',
+        });
+      }
+      sem = parsedSem;
+    }
+    const branch = coreBranch ? String(coreBranch).trim().toUpperCase() : null;
+    let acadYear = sem <= 2 ? 1 : sem <= 4 ? 2 : sem <= 6 ? 3 : 4;
+    if (academicYear !== undefined && academicYear !== null && String(academicYear).trim() !== '') {
+      const acadStr = String(academicYear).trim();
+      const parsedAcadYear = Number(acadStr);
+      if (
+        !/^\d+$/.test(acadStr) ||
+        !Number.isInteger(parsedAcadYear) ||
+        parsedAcadYear < 1 ||
+        parsedAcadYear > 6
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: 'academicYear must be an integer between 1 and 6',
+        });
+      }
+      acadYear = parsedAcadYear;
+    }
+    const studentSection = section ? String(section).trim().toUpperCase() : 'A';
+    const quota = admissionQuota ? String(admissionQuota).trim().toUpperCase() : 'KEA_CET';
+    let parsedCgpa = 0.00;
+    if (cgpa !== undefined && cgpa !== null && String(cgpa).trim() !== '') {
+      const numCgpa = Number(cgpa);
+      if (!Number.isFinite(numCgpa) || numCgpa < 0 || numCgpa > 10) {
+        return res.status(400).json({
+          success: false,
+          error: 'cgpa must be a finite number between 0 and 10',
+        });
+      }
+      parsedCgpa = Number(numCgpa.toFixed(2));
+    }
 
     // Check email and phone uniqueness via blind index
     const emailBidx = createBlindIndex(email);
@@ -509,7 +626,7 @@ export async function provisionStudent(req, res) {
       });
     }
 
-    const temporaryPassword = generateTempPassword(12);
+    const temporaryPassword = password || generateTempPassword(12);
     const passwordHash = await hashPassword(temporaryPassword);
 
     const fullNameEnc = encryptAES(fullName);
@@ -527,6 +644,7 @@ export async function provisionStudent(req, res) {
       {
         role: 'STUDENT',
         department: targetDept,
+        coreBranch: branch,
         admissionYear: year,
         entryType: entry,
       },
@@ -567,16 +685,37 @@ export async function provisionStudent(req, res) {
 
     // Dual-table sync into student table linked via user_id
     await client.query(
-      `INSERT INTO student (user_id, usn, full_name, email, department, semester, entry_type, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE')
+      `INSERT INTO student (
+         user_id, usn, full_name, email, department, core_branch,
+         semester, academic_year, section, entry_type, admission_quota, cgpa, status
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'ACTIVE')
        ON CONFLICT (usn) DO UPDATE SET
          user_id = EXCLUDED.user_id,
          full_name = EXCLUDED.full_name,
          email = EXCLUDED.email,
          department = EXCLUDED.department,
+         core_branch = EXCLUDED.core_branch,
          semester = EXCLUDED.semester,
-         entry_type = EXCLUDED.entry_type;`,
-      [userRow.id, usn, fullName, email, targetDept, sem, entry]
+         academic_year = EXCLUDED.academic_year,
+         section = EXCLUDED.section,
+         entry_type = EXCLUDED.entry_type,
+         admission_quota = EXCLUDED.admission_quota,
+         cgpa = EXCLUDED.cgpa;`,
+      [
+        userRow.id,
+        usn,
+        fullName,
+        email,
+        targetDept,
+        branch,
+        sem,
+        acadYear,
+        studentSection,
+        entry,
+        quota,
+        parsedCgpa,
+      ]
     );
 
     await client.query('COMMIT');
@@ -596,9 +735,14 @@ export async function provisionStudent(req, res) {
         email,
         phone,
         department: targetDept,
+        coreBranch: branch,
         admissionYear: year,
+        academicYear: acadYear,
         semester: sem,
+        section: studentSection,
         entryType: entry,
+        admissionQuota: quota,
+        cgpa: parsedCgpa,
       },
       dbReceipt: {
         persisted: true,
@@ -638,7 +782,7 @@ export async function login(req, res) {
   try {
     await ensureDatabaseExists();
 
-    const { username, identifier, password } = req.body;
+    const { username, identifier, password } = req.body || {};
     const inputIdentifier = (username || identifier || '').trim();
 
     if (!inputIdentifier || !password) {
@@ -788,7 +932,16 @@ export async function searchUsers(req, res) {
   try {
     await ensureDatabaseExists();
 
+    if (req.user?.baseRole === 'STUDENT') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Students cannot access the institutional user directory search',
+      });
+    }
+
+    const isSuperAdmin = req.user?.adminTier === 'SUPER_ADMIN';
     const q = (req.query.q || '').trim();
+    const deptFilter = (req.query.department || '').trim().toUpperCase();
     if (!q) {
       return res.status(200).json({
         success: true,
@@ -803,14 +956,16 @@ export async function searchUsers(req, res) {
     // 1. Exact Blind Index Search for email or phone query
     if (q.includes('@') || /^\+?[0-9]{7,15}$/.test(q.replace(/[\s-]/g, ''))) {
       const bidx = createBlindIndex(q.replace(/[\s-]/g, ''));
+      const params = deptFilter ? [bidx, deptFilter] : [bidx];
+      const deptClause = deptFilter ? ' AND UPPER(department) = $2' : '';
       const result = await pool.query(
         `SELECT id, username, full_name_encrypted, email_encrypted, phone_encrypted,
                 base_role, admin_tier, sub_roles, permissions, department, section_code,
                 admission_year, semester, entry_type, login_count, last_login_at, is_active, created_at
          FROM users
-         WHERE email_bidx = $1 OR phone_bidx = $1
+         WHERE (email_bidx = $1 OR phone_bidx = $1)${deptClause}
          LIMIT 20`,
-        [bidx]
+        params
       );
       rows = result.rows;
     }
@@ -818,17 +973,19 @@ export async function searchUsers(req, res) {
     // 2. Trigram / GIN fast search on username / USN
     if (rows.length === 0) {
       const sanitizedQ = q.toUpperCase();
+      const params = deptFilter ? [sanitizedQ, `%${sanitizedQ}%`, deptFilter] : [sanitizedQ, `%${sanitizedQ}%`];
+      const deptClause = deptFilter ? ' AND UPPER(department) = $3' : '';
       const trigramQuery = `
         SELECT id, username, full_name_encrypted, email_encrypted, phone_encrypted,
                base_role, admin_tier, sub_roles, permissions, department, section_code,
                admission_year, semester, entry_type, login_count, last_login_at, is_active, created_at,
                similarity(username, $1) as score
         FROM users
-        WHERE username ILIKE $2 OR username % $1
+        WHERE (username ILIKE $2 OR username % $1)${deptClause}
         ORDER BY score DESC, created_at DESC
         LIMIT 20;
       `;
-      const result = await pool.query(trigramQuery, [sanitizedQ, `%${sanitizedQ}%`]);
+      const result = await pool.query(trigramQuery, params);
       rows = result.rows;
     }
 
@@ -836,13 +993,13 @@ export async function searchUsers(req, res) {
     const results = rows.map((row) => ({
       id: row.id,
       username: row.username,
-      fullName: decryptAES(row.full_name_encrypted),
-      email: decryptAES(row.email_encrypted),
-      phone: decryptAES(row.phone_encrypted),
+      fullName: safeDecrypt(row.full_name_encrypted),
+      email: safeDecrypt(row.email_encrypted),
+      phone: safeDecrypt(row.phone_encrypted),
       baseRole: row.base_role,
       adminTier: row.admin_tier,
       subRoles: row.sub_roles,
-      permissions: row.permissions,
+      ...(isSuperAdmin ? { permissions: row.permissions } : {}),
       department: row.department,
       sectionCode: row.section_code,
       admissionYear: row.admission_year,
@@ -930,17 +1087,34 @@ export async function verifyDbStorage(req, res) {
     const isBootstrapValid = bootstrapKey && bootstrapKey === expectedKey;
 
     let isSuperAdminJwt = false;
-    const authHeader = req.headers.authorization || req.headers.Authorization;
-    if (authHeader) {
-      const parts = authHeader.split(' ');
-      const token = parts.length === 2 && /^Bearer$/i.test(parts[0]) ? parts[1] : authHeader;
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        if (decoded && decoded.adminTier === 'SUPER_ADMIN') {
-          isSuperAdminJwt = true;
+    if (!isBootstrapValid) {
+      const authHeader = req.headers.authorization || req.headers.Authorization;
+      if (authHeader) {
+        const parts = authHeader.split(' ');
+        const token = parts.length === 2 && /^Bearer$/i.test(parts[0]) ? parts[1] : authHeader;
+        try {
+          const decoded = jwt.verify(token, JWT_SECRET);
+          const tokenUserId = decoded?.userId || decoded?.id;
+          if (decoded && decoded.adminTier === 'SUPER_ADMIN' && tokenUserId) {
+            const dbCheck = await pool.query(
+              'SELECT id, is_active, token_version, admin_tier FROM users WHERE id = $1',
+              [tokenUserId]
+            );
+            const dbUser = dbCheck.rows[0];
+            const tokenVersionValid =
+              decoded.tokenVersion === undefined || decoded.tokenVersion === dbUser?.token_version;
+            if (
+              dbUser &&
+              dbUser.is_active === true &&
+              dbUser.admin_tier === 'SUPER_ADMIN' &&
+              tokenVersionValid
+            ) {
+              isSuperAdminJwt = true;
+            }
+          }
+        } catch {
+          // Continue to check fallback
         }
-      } catch {
-        // Continue to check fallback
       }
     }
 
@@ -961,11 +1135,27 @@ export async function verifyDbStorage(req, res) {
         (SELECT COUNT(*) FROM admin) AS admin_count,
         (SELECT COUNT(*) FROM id_sequences) AS sequences_count,
         (SELECT COUNT(*) FROM timetables) AS timetables_count,
+        (SELECT COUNT(*) FROM timetable_swaps) AS timetable_swaps_count,
+        (SELECT COUNT(*) FROM ocr_staging_batches) AS ocr_staging_batches_count,
         (SELECT COUNT(*) FROM academic_records) AS academic_records_count,
+        (SELECT COUNT(*) FROM academic_audit_logs) AS academic_audit_logs_count,
         (SELECT COUNT(*) FROM finance_ledgers) AS finance_ledgers_count,
+        (SELECT COUNT(*) FROM finance_transactions) AS finance_transactions_count,
         (SELECT COUNT(*) FROM student_documents) AS student_documents_count,
         (SELECT COUNT(*) FROM record_unlock_requests) AS unlock_requests_count,
-        (SELECT COUNT(*) FROM lg_leave_requests) AS leave_requests_count;
+        (SELECT COUNT(*) FROM lg_leave_requests) AS leave_requests_count,
+        (SELECT COUNT(*) FROM venues) AS venues_count,
+        (SELECT COUNT(*) FROM venue_bookings) AS venue_bookings_count,
+        (SELECT COUNT(*) FROM booking_timeline_logs) AS booking_timeline_logs_count,
+        (SELECT COUNT(*) FROM venue_transfer_requests) AS venue_transfer_requests_count,
+        (SELECT COUNT(*) FROM timetable_slots) AS timetable_slots_count,
+        (SELECT COUNT(*) FROM attendance_records) AS attendance_records_count,
+        (SELECT COUNT(*) FROM cie_marks) AS cie_marks_count,
+        (SELECT COUNT(*) FROM placement_drives) AS placement_drives_count,
+        (SELECT COUNT(*) FROM placement_applications) AS placement_applications_count,
+        (SELECT COUNT(*) FROM finance_records) AS finance_records_count,
+        (SELECT COUNT(*) FROM institutional_documents) AS institutional_documents_count,
+        (SELECT COUNT(*) FROM college_metadata) AS college_metadata_count;
     `;
     const countsRes = await pool.query(countQuery);
     const countsRow = countsRes.rows[0];
@@ -1057,11 +1247,27 @@ export async function verifyDbStorage(req, res) {
         admin: parseInt(countsRow.admin_count || '0', 10),
         id_sequences: parseInt(countsRow.sequences_count || '0', 10),
         timetables: parseInt(countsRow.timetables_count || '0', 10),
+        timetable_swaps: parseInt(countsRow.timetable_swaps_count || '0', 10),
+        ocr_staging_batches: parseInt(countsRow.ocr_staging_batches_count || '0', 10),
         academic_records: parseInt(countsRow.academic_records_count || '0', 10),
+        academic_audit_logs: parseInt(countsRow.academic_audit_logs_count || '0', 10),
         finance_ledgers: parseInt(countsRow.finance_ledgers_count || '0', 10),
+        finance_transactions: parseInt(countsRow.finance_transactions_count || '0', 10),
         student_documents: parseInt(countsRow.student_documents_count || '0', 10),
         record_unlock_requests: parseInt(countsRow.unlock_requests_count || '0', 10),
         lg_leave_requests: parseInt(countsRow.leave_requests_count || '0', 10),
+        venues: parseInt(countsRow.venues_count || '0', 10),
+        venue_bookings: parseInt(countsRow.venue_bookings_count || '0', 10),
+        booking_timeline_logs: parseInt(countsRow.booking_timeline_logs_count || '0', 10),
+        venue_transfer_requests: parseInt(countsRow.venue_transfer_requests_count || '0', 10),
+        timetable_slots: parseInt(countsRow.timetable_slots_count || '0', 10),
+        attendance_records: parseInt(countsRow.attendance_records_count || '0', 10),
+        cie_marks: parseInt(countsRow.cie_marks_count || '0', 10),
+        placement_drives: parseInt(countsRow.placement_drives_count || '0', 10),
+        placement_applications: parseInt(countsRow.placement_applications_count || '0', 10),
+        finance_records: parseInt(countsRow.finance_records_count || '0', 10),
+        institutional_documents: parseInt(countsRow.institutional_documents_count || '0', 10),
+        college_metadata: parseInt(countsRow.college_metadata_count || '0', 10),
       },
       recordsCount: records.length,
       records,
